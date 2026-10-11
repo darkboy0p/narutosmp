@@ -14,13 +14,16 @@ commands:
     permission: shinobi.admin
   jutsu:
     description: List your jutsu or cast a seal-less jutsu.
-    usage: /jutsu <list|cast <id>>
+    usage: /jutsu [list|info <id>|cast <id>|bind <slot> <id>|unbind <slot>|binds]
   bond:
     description: Bond with a friend (needed for Mangekyou awakening).
     usage: /bond <request <player>|accept|break <player>|list>
   mission:
     description: List or abandon your missions.
     usage: /mission [list|abandon <number>]
+  clan:
+    description: Show your clan, its level, perks and how to level up.
+    usage: /clan
   dojutsu:
     description: Toggle your dojutsu.
     usage: /dojutsu toggle

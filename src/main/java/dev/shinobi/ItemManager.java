@@ -146,6 +146,18 @@ public final class ItemManager implements Listener {
         return it;
     }
 
+    /** The catalyst (needed twice) when crafting this technique's scroll. */
+    public Material scrollCatalyst(Jutsu j) {
+        if (j.nature == null) return Material.AMETHYST_SHARD;
+        return switch (j.nature) {
+            case FIRE -> Material.BLAZE_POWDER;
+            case WATER -> Material.PRISMARINE_SHARD;
+            case WIND -> Material.FEATHER;
+            case LIGHTNING -> Material.LIGHTNING_ROD;
+            case EARTH -> Material.CLAY_BALL;
+        };
+    }
+
     public ItemStack scroll(Jutsu j) {
         ItemStack it = new ItemStack(Material.PAPER);
         ItemMeta m = it.getItemMeta();
@@ -264,6 +276,15 @@ public final class ItemManager implements Listener {
         shapeless("scroll_desk", create(Type.SCROLL_DESK, 1), Material.LECTERN, Material.INK_SAC, Material.PAPER);
         shapeless("mission_board", create(Type.MISSION_BOARD, 1), Material.CARTOGRAPHY_TABLE, Material.PAPER, Material.PAPER, Material.IRON_NUGGET);
 
+        // Every technique scroll can be crafted: Blank Scroll + Ink Sac + 2x catalyst (nature-themed). See /jutsu info.
+        if (plugin.getConfig().getBoolean("scrolls.craftable", true)) {
+            for (Jutsu j : plugin.jutsus().all()) {
+                if (!j.needsKnown) continue;
+                Material cat = scrollCatalyst(j);
+                shapeless("scroll_" + j.id, scroll(j), new RecipeChoice.ExactChoice(create(Type.BLANK_SCROLL, 1)), Material.INK_SAC, cat, cat);
+            }
+        }
+
         NamespacedKey kk = new NamespacedKey(plugin, "kunai");
         Bukkit.removeRecipe(kk);
         ShapedRecipe kunai = new ShapedRecipe(kk, create(Type.KUNAI, 4));
@@ -364,7 +385,7 @@ public final class ItemManager implements Listener {
             Msg.send(p, "<gray>You already know <white>" + j.name + "<gray>.");
             return;
         }
-        if (j.nature != null && pr.nature != j.nature) {
+        if (j.nature != null && pr.nature != j.nature && !plugin.casting().easy("ignore-nature")) {
             Msg.send(p, "<red>Your chakra doesn't resonate with this scroll (" + j.nature.display + " nature required).");
             return;
         }

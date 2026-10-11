@@ -39,6 +39,15 @@ gates:
   min-health-to-open: 12.0
   death-gate-lethal: false   # true = Gate of Death kills, like canon
 
+# Easy mode (true = easier). Set any of these to false for the harder, scroll-and-nature progression.
+easy-mode:
+  unlock-all-jutsu: true     # every technique is usable without finding its scroll
+  ignore-nature: true        # chakra nature never blocks a technique
+  quick-cast: true           # click a technique in /jutsu (or /shinobi > Jutsu Book) or use /jutsu cast <id> instead of seals
+
+scrolls:
+  craftable: true            # every technique scroll can be crafted: Blank Scroll + Ink Sac + 2x a catalyst (/jutsu info shows it). Needs a restart to change.
+
 # Override any jutsu's hand seals here (seal names: rat ox tiger hare dragon snake horse ram monkey bird dog boar).
 # Defaults are in code; the Substitution default is NOT verified against canon - edit freely.
 jutsu-seals: {}

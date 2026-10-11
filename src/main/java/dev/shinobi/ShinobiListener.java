@@ -101,7 +101,7 @@ public final class ShinobiListener implements Listener {
         // Sharingan: chance to dodge incoming hits.
         if (e.getEntity() instanceof Player victim) {
             Profile vp = plugin.profiles().get(victim);
-            double dodge = plugin.getConfig().getDouble("sharingan.dodge-chance", 0.20);
+            double dodge = plugin.getConfig().getDouble("sharingan.dodge-chance", 0.20) + 0.05 * (plugin.hud().sharinganStage(vp) - 1);
             if (vp.dojutsuActive && vp.clan == Clan.UCHIHA && ThreadLocalRandom.current().nextDouble() < dodge) {
                 e.setCancelled(true);
                 victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_PLAYER_ATTACK_NODAMAGE, 1f, 1.5f);
@@ -138,8 +138,9 @@ public final class ShinobiListener implements Listener {
             victimEntity.getWorld().spawnParticle(Particle.END_ROD, victimEntity.getLocation().add(0, 1, 0), 12, 0.3, 0.5, 0.3, 0.05);
             if (victimEntity instanceof Player vic) {
                 Profile vp = plugin.profiles().get(vic);
-                vp.chakra = Math.max(0.0, vp.chakra - 25.0);
-                vp.sealedUntil = now + 5000L;
+                int lv = plugin.casting().clanLevel(ap);
+                vp.chakra = Math.max(0.0, vp.chakra - (25.0 + 10.0 * (lv - 1)));
+                vp.sealedUntil = now + 5000L + 2000L * (lv - 1);
                 Msg.bar(vic, "<red>Your chakra points have been struck!");
             } else if (victimEntity instanceof LivingEntity le) {
                 le.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 100, 1));

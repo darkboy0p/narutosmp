@@ -43,22 +43,23 @@ public final class Jutsus {
     public static void registerAll(ShinobiPlugin plugin, JutsuRegistry r) {
         // ---------------- general ninjutsu ----------------
         r.register(Jutsu.builder("great_fireball", "Fire Release: Great Fireball")
-                .seals(seals(plugin, "great_fireball", Seal.SNAKE, Seal.RAM, Seal.MONKEY, Seal.BOAR, Seal.HORSE, Seal.TIGER))
+                .seals(seals(plugin, "great_fireball", Seal.TIGER, Seal.HORSE))
                 .nature(Nature.FIRE).cost(35).cooldown(8000)
                 .effect(Jutsus::greatFireball).build());
 
         r.register(Jutsu.builder("chidori", "Chidori")
-                .seals(seals(plugin, "chidori", Seal.OX, Seal.HARE, Seal.MONKEY))
+                .seals(seals(plugin, "chidori", Seal.OX, Seal.HARE))
                 .nature(Nature.LIGHTNING).cost(30).cooldown(10000)
                 .effect(Jutsus::chidori).build());
 
         r.register(Jutsu.builder("substitution", "Substitution Technique")
-                .seals(seals(plugin, "substitution", Seal.TIGER, Seal.BOAR))
+                .seals(seals(plugin, "substitution", Seal.RAT, Seal.RAT))
                 .cost(20).cooldown(12000)
                 .effect(Jutsus::substitution).build());
 
         r.register(Jutsu.builder("rasengan", "Rasengan")
-                .cost(40).cooldown(10000) // no seals: /jutsu cast rasengan
+                .seals(seals(plugin, "rasengan", Seal.OX, Seal.OX))
+                .cost(40).cooldown(10000)
                 .effect(Jutsus::rasengan).build());
 
         // ---------------- clan techniques (no scroll needed, clan must be awakened) ----------------
@@ -68,7 +69,7 @@ public final class Jutsus {
                 .effect(Jutsus::chakraChains).build());
 
         r.register(Jutsu.builder("white_light_sabre", "White Light Chakra Sabre")
-                .seals(seals(plugin, "white_light_sabre", Seal.BIRD, Seal.HORSE))
+                .seals(seals(plugin, "white_light_sabre", Seal.HARE, Seal.HORSE))
                 .clan(Clan.HATAKE).known(false).cost(20).cooldown(6000)
                 .effect(Jutsus::whiteLightSabre).build());
 
@@ -77,44 +78,45 @@ public final class Jutsus {
                 .clan(Clan.NARA).known(false).cost(25).cooldown(14000)
                 .effect(Jutsus::shadowBind).build());
 
-        // ---------------- more ninjutsu (seal sequences are placeholders: edit in config.yml) ----------------
+        // ---------------- more ninjutsu (easy 2-seal combos on keys 1-8; edit in config.yml) ----------------
         r.register(Jutsu.builder("water_dragon", "Water Release: Water Dragon Bullet")
-                .seals(seals(plugin, "water_dragon", Seal.OX, Seal.MONKEY, Seal.HARE, Seal.RAT, Seal.BOAR, Seal.BIRD))
+                .seals(seals(plugin, "water_dragon", Seal.DRAGON, Seal.DRAGON))
                 .nature(Nature.WATER).cost(40).cooldown(10000)
                 .effect(Jutsus::waterDragon).build());
 
         r.register(Jutsu.builder("water_wall", "Water Release: Water Wall")
-                .seals(seals(plugin, "water_wall", Seal.TIGER, Seal.SNAKE, Seal.RAM))
+                .seals(seals(plugin, "water_wall", Seal.DRAGON, Seal.SNAKE))
                 .nature(Nature.WATER).cost(25).cooldown(9000)
                 .effect(Jutsus::waterWall).build());
 
         r.register(Jutsu.builder("earth_wall", "Earth Release: Earth Wall")
-                .seals(seals(plugin, "earth_wall", Seal.BOAR, Seal.DOG, Seal.MONKEY))
+                .seals(seals(plugin, "earth_wall", Seal.RAM, Seal.OX))
                 .nature(Nature.EARTH).cost(25).cooldown(9000)
                 .effect(Jutsus::earthWall).build());
 
         r.register(Jutsu.builder("wind_blade", "Wind Release: Wind Blade")
-                .seals(seals(plugin, "wind_blade", Seal.HORSE, Seal.SNAKE, Seal.BIRD))
+                .seals(seals(plugin, "wind_blade", Seal.HORSE, Seal.SNAKE))
                 .nature(Nature.WIND).cost(25).cooldown(6000)
                 .effect(Jutsus::windBlade).build());
 
         r.register(Jutsu.builder("great_breakthrough", "Wind Release: Great Breakthrough")
-                .seals(seals(plugin, "great_breakthrough", Seal.DRAGON, Seal.HORSE, Seal.HARE))
+                .seals(seals(plugin, "great_breakthrough", Seal.HORSE, Seal.DRAGON))
                 .nature(Nature.WIND).cost(30).cooldown(10000)
                 .effect(Jutsus::greatBreakthrough).build());
 
         r.register(Jutsu.builder("phoenix_flower", "Fire Release: Phoenix Sage Fire")
-                .seals(seals(plugin, "phoenix_flower", Seal.RAT, Seal.TIGER, Seal.DOG))
+                .seals(seals(plugin, "phoenix_flower", Seal.TIGER, Seal.RAT))
                 .nature(Nature.FIRE).cost(30).cooldown(9000)
                 .effect(Jutsus::phoenixFlower).build());
 
         r.register(Jutsu.builder("shadow_clone", "Shadow Clone Technique")
-                .seals(seals(plugin, "shadow_clone", Seal.RAM, Seal.SNAKE, Seal.TIGER))
+                .seals(seals(plugin, "shadow_clone", Seal.RAM, Seal.RAM))
                 .cost(40).cooldown(20000)
                 .effect((pl, p, pr) -> pl.clones().spawn(p, pr)).build());
 
         r.register(Jutsu.builder("body_flicker", "Body Flicker Technique")
-                .cost(15).cooldown(4000) // no seals: /jutsu cast body_flicker
+                .seals(seals(plugin, "body_flicker", Seal.RAT, Seal.OX))
+                .cost(15).cooldown(4000)
                 .effect(Jutsus::bodyFlicker).build());
 
         // ---------------- chakra-control training (free for everyone, no seals) ----------------
@@ -128,7 +130,7 @@ public final class Jutsus {
 
         // ---------------- Mangekyou (unique ability is decided by MangekyoManager) ----------------
         r.register(Jutsu.builder("mangekyo_ability", "Mangekyou Technique")
-                .seals(seals(plugin, "mangekyo_ability", Seal.DOG, Seal.DOG))
+                .seals(seals(plugin, "mangekyo_ability", Seal.HARE, Seal.HARE))
                 .clan(Clan.UCHIHA).known(false).dojutsu(true).cost(50).cooldown(12000)
                 .effect((pl, p, pr) -> pl.mangekyo().cast(p, pr)).build());
     }

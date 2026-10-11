@@ -69,6 +69,9 @@ public final class ProfileManager {
         pr.mangekyo = c.getString("mangekyo");
         pr.strain = c.getDouble("strain", 0.0);
         pr.eternal = c.getBoolean("eternal", false);
+        pr.tomoe = c.getInt("tomoe", 0);
+        List<String> bl = c.getStringList("binds");
+        for (int i = 0; i < 9 && i < bl.size(); i++) pr.binds[i] = bl.get(i) == null || bl.get(i).isBlank() ? null : bl.get(i);
         pr.weightedSeconds = c.getDouble("weighted-seconds", 0.0);
         pr.completedMissions.addAll(c.getStringList("completed-missions"));
         for (Map<?, ?> mm : c.getMapList("missions")) {
@@ -97,6 +100,10 @@ public final class ProfileManager {
         c.set("mangekyo", pr.mangekyo);
         c.set("strain", pr.strain);
         c.set("eternal", pr.eternal);
+        c.set("tomoe", pr.tomoe);
+        List<String> bl = new ArrayList<>();
+        for (String b : pr.binds) bl.add(b == null ? "" : b);
+        c.set("binds", bl);
         c.set("weighted-seconds", pr.weightedSeconds);
         List<String> comp = new ArrayList<>(pr.completedMissions);
         if (comp.size() > 40) comp = new ArrayList<>(comp.subList(comp.size() - 40, comp.size()));

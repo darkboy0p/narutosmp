@@ -1,4 +1,4 @@
-# ShinobiSMP v0.3 (private Paper plugin)
+# ShinobiSMP v0.6 (private Paper plugin)
 
 Naruto-style chakra, hand seals, jutsu, clans, dojutsu, Eight Gates, unique Mangekyou, missions and custom crafting
 for a private survival SMP.
@@ -17,6 +17,25 @@ Targets Paper 1.21.11 (Java 21). Nothing here has been compiled by me, so the fi
 4. When it goes green, open the run and download the artifacts: `ShinobiSMP-plugin` (zip containing the jar) and `ShinobiPack`.
 5. Put the jar in your server's `plugins/` folder and restart. Config appears in `plugins/ShinobiSMP/config.yml`.
 6. If the build is red, open the failed step, copy the error lines and send them to me.
+
+## Easy mode (new in v0.4, on by default; see `easy-mode:` in config.yml)
+- Every technique is unlocked (no scrolls needed) and chakra nature no longer blocks anything. Set `unlock-all-jutsu` / `ignore-nature` to false for the old progression.
+- All default combos are now **2 seals on keys 1-8 only** (no Shift needed): Substitution 1-1, Body Flicker 1-2, Rasengan 2-2, Chidori 2-4,
+  Great Fireball 3-7, Phoenix Sage Fire 3-1, Adamantine Chains 3-5, Water Dragon 5-5, Water Wall 5-6, Great Breakthrough 7-5, Wind Blade 7-6,
+  Shadow Possession 1-6, White Light Sabre 4-7, Earth Wall 8-2, Shadow Clone 8-8, Mangekyou 4-4. (Keys: 1 Rat, 2 Ox, 3 Tiger, 4 Hare, 5 Dragon, 6 Snake, 7 Horse, 8 Ram.)
+- **`/jutsu`** (or /shinobi > Jutsu Book) opens a book: click any technique to cast it with no seals (`quick-cast`). `/jutsu cast <id>` works for all techniques.
+- Clan techniques still need the clan to be awakened (`/bind <player> <clan>`).
+
+## Keybinds, dojutsu, clans (v0.5)
+- **Keybinds:** `/jutsu bind [slot 1-9] [jutsu id]`, then hold **Shift + that number key** to cast it (slots with no bind switch normally). `/jutsu unbind [slot]`, `/jutsu binds`.
+- **Dojutsu:** **Shift+F** toggles it (Uchiha Sharingan / Hyuga Byakugan), costs chakra every second, night vision + highlights nearby mobs and players (Byakugan 24 blocks, Sharingan 16).
+- **Clans:** Uchiha - 20-30% dodge (more tomoe = more dodge), copies jutsu it sees, cheaper fire, Mangekyou + Susanoo. Hyuga - Byakugan, Gentle Fist (bare-hand hit drains 25 chakra and seals jutsu 5s on players; weakens mobs).
+  Uzumaki - x1.5 chakra and regen, Adamantine Chakra Chains (3-5). Hatake - White Light Chakra Sabre (4-7, cheaper). Nara - Shadow Possession (1-6).
+- **Clan levels (all clans):** level 1-3 grows with training (25 / 75 total casts) and scales every clan's perks: Uchiha dodge (tomoe), Hyuga Byakugan range + Gentle Fist, Uzumaki chakra x1.5/1.75/2.0, Hatake sabre discount, Nara shadow discount. `/clan` shows yours.
+- **Scrolls:** found in loot chests, written at a Scroll Desk, or crafted: Blank Scroll + Ink Sac + 2x catalyst (Fire blaze powder, Water prismarine shard, Wind feather, Lightning lightning rod, Earth clay ball, no nature amethyst shard). `/jutsu info [id]` shows it. Toggle: `scrolls.craftable`.
+- **User commands:** `/clan`, `/jutsu` (book), `/jutsu list|info|cast|bind|unbind|binds`, `/dojutsu toggle`, `/gate`, `/bond`, `/mission`.
+- **More admin:** `/shinobi admin level|cooldown|refill|mastery|roll|info [player] ...`.
+- **Admin overrides:** `/shinobi admin awaken [player] [clan|off]` (sets the clan if needed, no near-death required), `/shinobi admin tomoe [player] [1|2|3|auto]`, `/shinobi admin eternal [player] [on|off]`, `/shinobi admin mangekyo [player] assign [ability]`.
 
 ## Basics
 - First join: hidden roll for nature and (rarely) a clan. Craft **Chakra Paper** (paper + amethyst shard) to reveal your nature.

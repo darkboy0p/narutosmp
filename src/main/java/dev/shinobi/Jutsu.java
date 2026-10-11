@@ -40,7 +40,7 @@ public final class Jutsu {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < seals.size(); i++) {
             if (i > 0) sb.append(" > ");
-            sb.append(seals.get(i).display);
+            sb.append(seals.get(i).display).append(" [").append(seals.get(i).keyText()).append("]");
         }
         return sb.toString();
     }

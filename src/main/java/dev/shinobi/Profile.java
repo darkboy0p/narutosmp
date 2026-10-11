@@ -26,6 +26,8 @@ public final class Profile {
     public String mangekyo;
     public boolean eternal;
     public double strain;
+    public int tomoe;                        // 0 = automatic (from training), 1-3 = admin override
+    public final String[] binds = new String[9]; // jutsu id bound to each hotbar slot (Shift + number key)
     public double weightedSeconds;
     public final Set<UUID> bonds = new HashSet<>();
     public final List<MissionState> missions = new ArrayList<>();

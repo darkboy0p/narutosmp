@@ -11,10 +11,32 @@ public final class JutsuService {
         this.plugin = plugin;
     }
 
+    public boolean easy(String key) {
+        return plugin.getConfig().getBoolean("easy-mode." + key, true);
+    }
+
+    /** True if the player may cast this technique without a copy (scroll learned, or easy-mode unlock-all). */
+    public boolean unlocked(Profile pr, Jutsu j) {
+        if (!j.needsKnown) return true;
+        return easy("unlock-all-jutsu") || pr.known.contains(j.id);
+    }
+
+    /** True if the technique should appear in the player's lists / book. */
+    public boolean usable(Profile pr, Jutsu j) {
+        if (j.clan != null) return pr.clan == j.clan && pr.awakened;
+        return unlocked(pr, j);
+    }
+
+    /** Clan level 1-3 for every clan: grows with training (25 / 75 total casts) or is set by an admin. */
+    public int clanLevel(Profile pr) {
+        return plugin.hud().sharinganStage(pr);
+    }
+
     public double costFor(Profile pr, Jutsu j) {
         double cost = j.cost * (1.0 - Math.min(0.30, pr.masteryOf(j.id) * 0.003));
         if (pr.clan == Clan.UCHIHA && pr.awakened && j.nature == Nature.FIRE) cost *= 0.8;
-        if (pr.clan == Clan.HATAKE && pr.awakened && j.id.equals("white_light_sabre")) cost *= 0.8;
+        if (pr.clan == Clan.HATAKE && pr.awakened && j.id.equals("white_light_sabre")) cost *= 1.0 - (0.2 + 0.1 * (clanLevel(pr) - 1));
+        if (pr.clan == Clan.NARA && pr.awakened && j.id.equals("shadow_bind")) cost *= 1.0 - 0.1 * clanLevel(pr);
         return cost;
     }
 
@@ -25,7 +47,7 @@ public final class JutsuService {
             return false;
         }
         boolean copied = false;
-        if (j.needsKnown && !pr.known.contains(j.id)) {
+        if (j.needsKnown && !unlocked(pr, j)) {
             Long exp = pr.copied.get(j.id);
             if (exp != null && exp > now) {
                 copied = true;
@@ -34,7 +56,7 @@ public final class JutsuService {
                 return false;
             }
         }
-        if (j.nature != null && pr.nature != j.nature) {
+        if (j.nature != null && pr.nature != j.nature && !easy("ignore-nature")) {
             Msg.bar(p, "<red>Your chakra nature does not match <white>" + j.name + "<red>.");
             return false;
         }
@@ -84,7 +106,7 @@ public final class JutsuService {
             if (o.equals(caster)) continue;
             Profile op = plugin.profiles().get(o);
             if (op.clan != Clan.UCHIHA || !op.awakened || !op.dojutsuActive) continue;
-            if (op.known.contains(j.id)) continue;
+            if (unlocked(op, j)) continue;
             if (j.nature != null && op.nature != j.nature) continue;
             if (o.getLocation().distance(caster.getLocation()) > range) continue;
             Vector to = caster.getEyeLocation().toVector().subtract(o.getEyeLocation().toVector());

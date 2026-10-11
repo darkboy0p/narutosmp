@@ -51,7 +51,7 @@ public final class DojutsuManager {
         p.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 400, 0, true, false, false));
 
         boolean byakugan = pr.clan == Clan.HYUGA;
-        double radius = byakugan ? 24.0 : 16.0;
+        double radius = byakugan ? 24.0 + 8.0 * (plugin.casting().clanLevel(pr) - 1) : 16.0;
         Particle particle = byakugan ? Particle.END_ROD : Particle.FLAME;
         int shown = 0;
         for (Entity en : p.getNearbyEntities(radius, radius, radius)) {

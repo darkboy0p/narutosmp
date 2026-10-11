@@ -16,7 +16,7 @@ public final class ChakraManager {
 
     public double effectiveMax(Profile pr) {
         double max = pr.maxChakra;
-        if (pr.clan == Clan.UZUMAKI && pr.awakened) max *= 1.5;
+        if (pr.clan == Clan.UZUMAKI && pr.awakened) max *= 1.25 + 0.25 * plugin.casting().clanLevel(pr);
         return max;
     }
 
@@ -51,7 +51,7 @@ public final class ChakraManager {
         boolean meditating = p.isSneaking() && still && !sealing && (p.isOnGround() || inFlow);
 
         double regen = plugin.getConfig().getDouble("chakra.base-regen", 2.0);
-        if (pr.clan == Clan.UZUMAKI && pr.awakened) regen *= 1.5;
+        if (pr.clan == Clan.UZUMAKI && pr.awakened) regen *= 1.25 + 0.25 * plugin.casting().clanLevel(pr);
         if (meditating) {
             regen *= plugin.getConfig().getDouble("chakra.meditation-multiplier", 3.0);
             if (inFlow) regen *= 1.5;

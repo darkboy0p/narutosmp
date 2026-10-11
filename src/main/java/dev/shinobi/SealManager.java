@@ -11,7 +11,7 @@ import java.util.List;
 
 /**
  * Hand-seal input. Swap-hands (F) toggles seal mode; Shift+F toggles your dojutsu.
- * In seal mode you are parked on hotbar slot 9: keys 1-8 form seals 1-8, Shift+1-4 form seals 9-12.
+ * In seal mode you are parked on hotbar slot 9: keys 1-8 form seals 1-8 (all default techniques use only these). Shift+1-4 = seals 9-12 for custom combos.
  */
 public final class SealManager implements Listener {
     private final ShinobiPlugin plugin;
@@ -39,7 +39,18 @@ public final class SealManager implements Listener {
     public void onHeld(PlayerItemHeldEvent e) {
         Player p = e.getPlayer();
         Profile pr = plugin.profiles().get(p);
-        if (pr.session == null) return;
+        if (pr.session == null) {
+            // Keybinds: hold Shift and press a number key whose hotbar slot has a bound jutsu.
+            if (p.isSneaking() && plugin.casting().easy("quick-cast")) {
+                String id = pr.binds[e.getNewSlot()];
+                Jutsu j = id == null ? null : plugin.jutsus().get(id);
+                if (j != null) {
+                    e.setCancelled(true);
+                    plugin.casting().cast(p, pr, j);
+                }
+            }
+            return;
+        }
         e.setCancelled(true);
         Seal s = Seal.fromInput(e.getNewSlot(), p.isSneaking());
         if (s != null) input(p, pr, s);
@@ -64,7 +75,7 @@ public final class SealManager implements Listener {
         List<Seal> seq = pr.session.seq;
         StringBuilder sb = new StringBuilder("<yellow>Seals: <white>");
         if (seq.isEmpty()) {
-            sb.append("<gray>(keys 1-8, Shift+1-4)  F to cancel");
+            sb.append("<gray>(press keys 1-8)  F to cancel");
         } else {
             boolean glyphs = plugin.hud().on();
             for (int i = 0; i < seq.size(); i++) {

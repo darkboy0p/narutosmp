@@ -71,12 +71,12 @@ public final class MenuGui implements Listener {
         // Jutsu book
         List<String> jl = new ArrayList<>();
         for (Jutsu j : plugin.jutsus().all()) {
-            boolean usable = j.needsKnown ? pr.known.contains(j.id) : (j.clan != null && pr.clan == j.clan && pr.awakened);
-            if (!usable) continue;
+            if (!plugin.casting().usable(pr, j)) continue;
             jl.add("<white>" + j.name);
             jl.add("<dark_gray>  " + j.sealText() + "  <gray>x" + pr.masteryOf(j.id));
         }
         if (jl.isEmpty()) jl.add("<gray>You know no techniques yet. Find scrolls!");
+        else if (plugin.casting().easy("quick-cast")) jl.add("<green>Click to open and cast");
         inv.setItem(13, named(Material.BOOK, "<gold>Jutsu Book", jl));
 
         // Bonds
@@ -143,7 +143,11 @@ public final class MenuGui implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        if (e.getView().getTopInventory().getHolder() instanceof Holder) e.setCancelled(true);
+        if (!(e.getView().getTopInventory().getHolder() instanceof Holder)) return;
+        e.setCancelled(true);
+        if (e.getClickedInventory() != e.getView().getTopInventory() || e.getSlot() != 13) return;
+        if (!(e.getWhoClicked() instanceof Player p) || !plugin.casting().easy("quick-cast")) return;
+        Bukkit.getScheduler().runTask(plugin, () -> plugin.bookGui().open(p));
     }
 
     @EventHandler

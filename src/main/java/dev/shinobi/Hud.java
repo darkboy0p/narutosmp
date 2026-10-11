@@ -64,8 +64,9 @@ public final class Hud {
 
     // ------------------------------------------------------------------ eyes
 
-    /** Cosmetic Sharingan stage (1-3 tomoe) from how much the player has trained. */
+    /** Clan level 1-3 (Sharingan tomoe for Uchiha) from training, or the admin override. */
     public int sharinganStage(Profile pr) {
+        if (pr.tomoe >= 1) return Math.min(3, pr.tomoe);
         int total = 0;
         for (int v : pr.mastery.values()) total += v;
         return total >= 75 ? 3 : total >= 25 ? 2 : 1;
@@ -85,7 +86,7 @@ public final class Hud {
         String k = eyeKey(pr);
         return switch (k) {
             case "eye_none" -> "No dojutsu";
-            case "eye_byakugan" -> "Byakugan";
+            case "eye_byakugan" -> "Byakugan (level " + sharinganStage(pr) + ")";
             case "eye_eternal_mangekyo" -> "Eternal Mangekyou Sharingan (" + MangekyoManager.display(pr.mangekyo) + ")";
             default -> k.startsWith("eye_mangekyo_")
                     ? "Mangekyou Sharingan (" + MangekyoManager.display(pr.mangekyo) + ")"

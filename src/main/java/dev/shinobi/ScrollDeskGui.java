@@ -57,7 +57,7 @@ public final class ScrollDeskGui implements Listener {
 
         int n = 0;
         for (Jutsu j : plugin.jutsus().all()) {
-            if (!j.needsKnown || !pr.known.contains(j.id) || n >= SLOTS.length) continue;
+            if (!j.needsKnown || !plugin.casting().unlocked(pr, j) || n >= SLOTS.length) continue;
             boolean ready = pr.masteryOf(j.id) >= MASTERY_NEEDED;
             ItemStack it = new ItemStack(ready ? Material.PAPER : Material.GRAY_DYE);
             ItemMeta m = it.getItemMeta();
@@ -95,7 +95,7 @@ public final class ScrollDeskGui implements Listener {
 
         Profile pr = plugin.profiles().get(p);
         Jutsu j = plugin.jutsus().get(id);
-        if (j == null || !pr.known.contains(id)) return;
+        if (j == null || !plugin.casting().unlocked(pr, j)) return;
         if (pr.masteryOf(id) < MASTERY_NEEDED) {
             Msg.send(p, "<red>Practice " + j.name + " " + MASTERY_NEEDED + " times before you write it down.");
             return;

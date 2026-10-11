@@ -25,6 +25,7 @@ public final class ShinobiPlugin extends JavaPlugin {
     private ScrollDeskGui deskGui;
     private MissionBoardGui boardGui;
     private SealingScrollGui sealingGui;
+    private JutsuBookGui bookGui;
 
     @Override
     public void onEnable() {
@@ -52,6 +53,7 @@ public final class ShinobiPlugin extends JavaPlugin {
         deskGui = new ScrollDeskGui(this);
         boardGui = new MissionBoardGui(this);
         sealingGui = new SealingScrollGui(this);
+        bookGui = new JutsuBookGui(this);
 
         var pm = getServer().getPluginManager();
         pm.registerEvents(new ShinobiListener(this), this);
@@ -65,9 +67,10 @@ public final class ShinobiPlugin extends JavaPlugin {
         pm.registerEvents(deskGui, this);
         pm.registerEvents(boardGui, this);
         pm.registerEvents(sealingGui, this);
+        pm.registerEvents(bookGui, this);
 
         ShinobiCommands cmds = new ShinobiCommands(this);
-        for (String name : new String[]{"shinobi", "bind", "jutsu", "bond", "dojutsu", "gate", "mission"}) {
+        for (String name : new String[]{"shinobi", "bind", "jutsu", "clan", "bond", "dojutsu", "gate", "mission"}) {
             var c = getCommand(name);
             if (c != null) {
                 c.setExecutor(cmds);
@@ -121,4 +124,5 @@ public final class ShinobiPlugin extends JavaPlugin {
     public ScrollDeskGui deskGui() { return deskGui; }
     public MissionBoardGui boardGui() { return boardGui; }
     public SealingScrollGui sealingGui() { return sealingGui; }
+    public JutsuBookGui bookGui() { return bookGui; }
 }

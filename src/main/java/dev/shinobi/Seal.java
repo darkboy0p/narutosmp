@@ -22,6 +22,12 @@ public enum Seal {
         return values()[idx];
     }
 
+    /** The key(s) that form this seal while in seal mode. */
+    public String keyText() {
+        int i = ordinal();
+        return i < 8 ? String.valueOf(i + 1) : "Shift+" + (i - 7);
+    }
+
     public static Seal parse(String s) {
         if (s == null) return null;
         try {

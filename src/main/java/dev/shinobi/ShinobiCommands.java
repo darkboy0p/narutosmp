@@ -36,6 +36,7 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
             }
             case "mission" -> mission(sender, args);
             case "jutsu" -> jutsu(sender, args);
+            case "clan" -> clanInfo(sender);
             case "bond" -> bond(sender, args);
             case "dojutsu" -> {
                 Player p = player(sender);
@@ -87,7 +88,10 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
             case "admin" -> admin(sender, Arrays.copyOfRange(args, 1, args.length));
             default -> {
                 Msg.send(sender, "<gray>/shinobi <white>(menu)<gray>, /shinobi stats, /jutsu list, /bond, /dojutsu toggle, /gate open|close");
-                Msg.send(sender, "<gray>Press <white>F<gray> for hand seals. Shift+F toggles your dojutsu.");
+                Msg.send(sender, "<gray>Press <white>F<gray> then two number keys (1-8) for hand seals; or <white>/jutsu<gray> and click a technique.");
+                Msg.send(sender, "<gray>Keybind: <white>/jutsu bind [slot 1-9] [jutsu id]<gray>, then hold <white>Shift + that number key<gray> to cast it.");
+                Msg.send(sender, "<gray>Dojutsu: <white>Shift+F<gray> toggles Sharingan (Uchiha) or Byakugan (Hyuga). Costs chakra per second.");
+                Msg.send(sender, "<gray>Uchiha: dodge hits, copy jutsu, cheaper fire, Mangekyou. Hyuga: see through walls + Gentle Fist (bare-hand hit seals chakra). Uzumaki: bigger chakra + Chains. Hatake: White Light Sabre. Nara: Shadow Possession.");
             }
         }
     }
@@ -100,7 +104,7 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
             return;
         }
         if (a.length == 0) {
-            Msg.send(sender, "<gray>Admin: clan, nature, learn, forget, scroll, item, paper, chakra, awaken, reset, mangekyo, reload");
+            Msg.send(sender, "<gray>Admin: clan, nature, learn, forget, scroll, item, paper, chakra, awaken, level, cooldown, refill, mastery, roll, info, eternal, reset, mangekyo, reload");
             return;
         }
         String sub = a[0].toLowerCase(Locale.ROOT);
@@ -211,12 +215,118 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
                 }
             }
             case "awaken" -> {
-                if (pr.clan == null) {
-                    Msg.send(sender, "<red>That player has no clan. Use /bind first.");
+                // /shinobi admin awaken [player] [clan|off]  - override: no near-death needed, can also set the clan.
+                if (a.length > 2 && a[2].equalsIgnoreCase("off")) {
+                    plugin.dojutsu().deactivate(t, pr, null);
+                    pr.awakened = false;
+                    Msg.send(sender, "<green>" + t.getName() + "'s bloodline is dormant again.");
+                } else if (a.length > 2) {
+                    bindClan(sender, a[1], a[2]);
+                } else if (pr.clan == null) {
+                    Msg.send(sender, "<red>That player has no clan. Use /shinobi admin awaken [player] [clan].");
+                    return;
+                } else {
+                    pr.awakened = true;
+                    Msg.send(sender, "<green>Awakened " + t.getName() + "'s bloodline.");
+                }
+            }
+            case "tomoe", "level" -> {
+                // /shinobi admin level [player] [1|2|3|auto]  - works for every clan (Uchiha: tomoe count)
+                if (a.length < 3) {
+                    Msg.send(sender, "<red>Usage: /shinobi admin level [player] [1|2|3|auto]");
                     return;
                 }
-                pr.awakened = true;
-                Msg.send(sender, "<green>Awakened " + t.getName() + "'s bloodline.");
+                if (pr.clan == null) {
+                    Msg.send(sender, "<red>That player has no clan. Use /shinobi admin awaken [player] [clan] first.");
+                    return;
+                }
+                if (a[2].equalsIgnoreCase("auto")) {
+                    pr.tomoe = 0;
+                } else {
+                    try {
+                        pr.tomoe = Math.max(1, Math.min(3, Integer.parseInt(a[2])));
+                    } catch (NumberFormatException ex) {
+                        Msg.send(sender, "<red>Usage: /shinobi admin level [player] [1|2|3|auto]");
+                        return;
+                    }
+                    pr.awakened = true;
+                }
+                Msg.send(sender, "<green>" + t.getName() + "'s " + pr.clan.display + " level: "
+                        + (pr.tomoe == 0 ? "automatic (from training)" : pr.tomoe) + ".");
+            }
+            case "cooldown" -> {
+                pr.cooldowns.clear();
+                pr.sealedUntil = 0;
+                Msg.send(sender, "<green>Cleared " + t.getName() + "'s cooldowns.");
+            }
+            case "refill" -> {
+                pr.chakra = plugin.chakra().effectiveMax(pr);
+                pr.strain = 0;
+                Msg.send(sender, "<green>Refilled " + t.getName() + "'s chakra.");
+            }
+            case "mastery" -> {
+                // /shinobi admin mastery [player] [jutsu|all] [casts]
+                if (a.length < 4) {
+                    Msg.send(sender, "<red>Usage: /shinobi admin mastery [player] [jutsu|all] [casts]");
+                    return;
+                }
+                int n;
+                try {
+                    n = Math.max(0, Math.min(9999, Integer.parseInt(a[3])));
+                } catch (NumberFormatException ex) {
+                    Msg.send(sender, "<red>Casts must be a number.");
+                    return;
+                }
+                if (a[2].equalsIgnoreCase("all")) {
+                    for (Jutsu j : plugin.jutsus().all()) pr.mastery.put(j.id, n);
+                    Msg.send(sender, "<green>Set every technique to " + n + " casts for " + t.getName() + ".");
+                } else {
+                    Jutsu j = plugin.jutsus().get(a[2]);
+                    if (j == null) {
+                        Msg.send(sender, "<red>Unknown jutsu. Ids: " + String.join(", ", plugin.jutsus().ids()));
+                        return;
+                    }
+                    pr.mastery.put(j.id, n);
+                    Msg.send(sender, "<green>" + j.name + " set to " + n + " casts for " + t.getName() + ".");
+                }
+            }
+            case "roll" -> {
+                // Re-roll the natural clan chance (same odds as a first join).
+                plugin.dojutsu().deactivate(t, pr, null);
+                plugin.mangekyo().revoke(pr);
+                pr.clan = null;
+                pr.awakened = false;
+                pr.tomoe = 0;
+                List<Clan> order = new ArrayList<>(List.of(Clan.values()));
+                java.util.Collections.shuffle(order);
+                for (Clan c : order) {
+                    double chance = plugin.getConfig().getDouble("clans.roll-chance." + c.name().toLowerCase(Locale.ROOT), c.defaultChance);
+                    if (java.util.concurrent.ThreadLocalRandom.current().nextDouble() < chance) {
+                        pr.clan = c;
+                        break;
+                    }
+                }
+                Msg.send(sender, pr.clan == null ? "<gray>" + t.getName() + " rolled no clan."
+                        : "<green>" + t.getName() + " rolled " + pr.clan.display + " (dormant until awakened).");
+            }
+            case "info" -> {
+                int casts = 0;
+                for (int v : pr.mastery.values()) casts += v;
+                Msg.send(sender, "<gray>" + t.getName() + ": nature <white>" + (pr.nature == null ? "none" : pr.nature.display)
+                        + "<gray>, clan <white>" + (pr.clan == null ? "none" : pr.clan.display + (pr.awakened ? " (awakened)" : " (dormant)"))
+                        + "<gray>, level <white>" + plugin.casting().clanLevel(pr) + (pr.tomoe > 0 ? " (admin)" : "")
+                        + "<gray>, chakra <aqua>" + (int) pr.chakra + "/" + (int) plugin.chakra().effectiveMax(pr)
+                        + "<gray>, casts <white>" + casts + "<gray>, scrolls learned <white>" + pr.known.size()
+                        + (pr.mangekyo != null ? "<gray>, Mangekyou <dark_red>" + MangekyoManager.display(pr.mangekyo) + (pr.eternal ? " (eternal)" : "") : ""));
+            }
+            case "eternal" -> {
+                boolean on = a.length < 3 || !a[2].equalsIgnoreCase("off");
+                if (on && pr.mangekyo == null) {
+                    Msg.send(sender, "<red>Assign a Mangekyou first: /shinobi admin mangekyo [player] assign [ability]");
+                    return;
+                }
+                pr.eternal = on;
+                Msg.send(sender, "<green>Eternal Mangekyou " + (on ? "granted to " : "removed from ") + t.getName() + ".");
             }
             case "reset" -> {
                 plugin.mangekyo().revoke(pr);
@@ -295,11 +405,14 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
         Player p = player(sender);
         if (p == null) return;
         Profile pr = plugin.profiles().get(p);
+        if (args.length == 0 && plugin.casting().easy("quick-cast")) {
+            plugin.bookGui().open(p);
+            return;
+        }
         if (args.length == 0 || args[0].equalsIgnoreCase("list")) {
             boolean any = false;
             for (Jutsu j : plugin.jutsus().all()) {
-                boolean usable = j.needsKnown ? pr.known.contains(j.id) : (j.clan != null && pr.clan == j.clan && pr.awakened);
-                if (!usable) continue;
+                if (!plugin.casting().usable(pr, j)) continue;
                 any = true;
                 Msg.send(p, "<white>" + j.name + " <gray>[" + j.id + "] " + j.sealText() + " <dark_gray>(x" + pr.masteryOf(j.id) + ")");
             }
@@ -312,14 +425,112 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
                 Msg.send(p, "<red>Unknown jutsu.");
                 return;
             }
-            if (!j.seals.isEmpty()) {
+            if (!j.seals.isEmpty() && !plugin.casting().easy("quick-cast")) {
                 Msg.send(p, "<red>That technique needs hand seals: " + j.sealText() + ". Press F.");
                 return;
             }
             plugin.casting().cast(p, pr, j);
             return;
         }
-        Msg.send(p, "<gray>Usage: /jutsu list | /jutsu cast [id]");
+        if (args[0].equalsIgnoreCase("info") && args.length > 1) {
+            Jutsu j = plugin.jutsus().get(args[1]);
+            if (j == null) {
+                Msg.send(p, "<red>Unknown jutsu. Ids: " + String.join(", ", plugin.jutsus().ids()));
+                return;
+            }
+            Msg.send(p, "<gold>" + j.name + " <gray>[" + j.id + "]");
+            Msg.send(p, "<gray>Seals: <white>" + j.sealText() + " <gray>Chakra: <aqua>" + (int) Math.ceil(plugin.casting().costFor(pr, j))
+                    + " <gray>Cooldown: <white>" + (j.cooldownMs / 1000) + "s");
+            if (j.nature != null) Msg.send(p, "<gray>Nature: " + j.nature.colored() + (plugin.casting().easy("ignore-nature") ? " <dark_gray>(not required in easy mode)" : ""));
+            if (j.clan != null) Msg.send(p, "<gray>Clan: " + j.clan.colored() + " <dark_gray>(awakened)");
+            if (j.needsKnown) {
+                Msg.send(p, "<gray>Learn: find the scroll in loot, write it at a Scroll Desk" + (plugin.getConfig().getBoolean("scrolls.craftable", true)
+                        ? ", or craft it: Blank Scroll + Ink Sac + 2x " + plugin.items().scrollCatalyst(j).name().toLowerCase(Locale.ROOT).replace('_', ' ') : "") + ".");
+            }
+            return;
+        }
+        if (args[0].equalsIgnoreCase("bind") && args.length > 2) {
+            int slot = slotOf(args[1]);
+            Jutsu j = plugin.jutsus().get(args[2]);
+            if (slot < 0 || j == null) {
+                Msg.send(p, "<red>Usage: /jutsu bind [slot 1-9] [jutsu id]  (see /jutsu list for ids)");
+                return;
+            }
+            pr.binds[slot] = j.id;
+            plugin.profiles().save(pr);
+            Msg.send(p, "<green>Bound <white>" + j.name + "<green> to slot " + (slot + 1) + ". Hold <white>Shift + " + (slot + 1) + "<green> to cast it.");
+            return;
+        }
+        if (args[0].equalsIgnoreCase("unbind") && args.length > 1) {
+            int slot = slotOf(args[1]);
+            if (slot < 0) {
+                Msg.send(p, "<red>Usage: /jutsu unbind [slot 1-9]");
+                return;
+            }
+            pr.binds[slot] = null;
+            plugin.profiles().save(pr);
+            Msg.send(p, "<green>Slot " + (slot + 1) + " is unbound.");
+            return;
+        }
+        if (args[0].equalsIgnoreCase("binds")) {
+            boolean any = false;
+            for (int i = 0; i < 9; i++) {
+                Jutsu j = pr.binds[i] == null ? null : plugin.jutsus().get(pr.binds[i]);
+                if (j == null) continue;
+                any = true;
+                Msg.send(p, "<white>Shift+" + (i + 1) + " <gray>= <white>" + j.name);
+            }
+            if (!any) Msg.send(p, "<gray>No keybinds. /jutsu bind [slot 1-9] [jutsu id]");
+            return;
+        }
+        Msg.send(p, "<gray>Usage: /jutsu (book) | list | info [id] | cast [id] | bind [slot] [id] | unbind [slot] | binds");
+    }
+
+    private void clanInfo(CommandSender sender) {
+        Player p = player(sender);
+        if (p == null) return;
+        Profile pr = plugin.profiles().get(p);
+        Clan c = pr.clan;
+        if (c == null) {
+            Msg.send(p, "<gray>You carry no clan blood. A few players are born into one when they first join; an admin can also bind one.");
+            return;
+        }
+        if (!pr.awakened) {
+            double hearts = plugin.getConfig().getDouble("awakening.near-death-health", 4.0) / 2.0;
+            Msg.send(p, "<gray>Your " + c.colored() + "<gray> blood is dormant. Survive at <white>" + (hearts == (int) hearts ? String.valueOf((int) hearts) : String.valueOf(hearts))
+                    + "<gray> hearts or less to awaken it.");
+            Msg.send(p, "<gray>Waiting inside you: <white>" + c.abilities);
+            return;
+        }
+        int lv = plugin.casting().clanLevel(pr);
+        int total = 0;
+        for (int v : pr.mastery.values()) total += v;
+        Msg.send(p, c.colored() + " <gray>clan - level <white>" + lv + "<gray>/3" + (c == Clan.UCHIHA && pr.mangekyo == null ? " (" + lv + " tomoe)" : ""));
+        Msg.send(p, "<gray>Abilities: <white>" + c.abilities);
+        Msg.send(p, "<gray>Perks now: <white>" + clanPerks(c, lv));
+        if (pr.tomoe > 0) Msg.send(p, "<gray>Your level was set by an admin.");
+        else if (lv < 3) Msg.send(p, "<gray>Next level after <white>" + Math.max(0, (lv == 1 ? 25 : 75) - total) + "<gray> more technique casts.");
+        else Msg.send(p, "<green>Max level reached.");
+        if (c.hasDojutsu()) Msg.send(p, "<gray>Dojutsu: <white>Shift+F<gray> or <white>/dojutsu toggle<gray> (" + (pr.dojutsuActive ? "active" : "inactive") + ")");
+    }
+
+    private String clanPerks(Clan c, int lv) {
+        return switch (c) {
+            case UCHIHA -> "dodge " + Math.round((plugin.getConfig().getDouble("sharingan.dodge-chance", 0.20) + 0.05 * (lv - 1)) * 100) + "%, fire jutsu -20% chakra";
+            case HYUGA -> "Byakugan range " + (24 + 8 * (lv - 1)) + " blocks, Gentle Fist drains " + (25 + 10 * (lv - 1)) + " chakra";
+            case UZUMAKI -> "chakra and regen x" + String.format(Locale.ROOT, "%.2f", 1.25 + 0.25 * lv);
+            case HATAKE -> "White Light Sabre costs " + (20 + 10 * (lv - 1)) + "% less";
+            case NARA -> "Shadow Possession costs " + (10 * lv) + "% less";
+        };
+    }
+
+    private static int slotOf(String s) {
+        try {
+            int n = Integer.parseInt(s.trim());
+            return n >= 1 && n <= 9 ? n - 1 : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     // ------------------------------------------------------------------ /mission
@@ -387,8 +598,10 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
             if (args.length == 1) players(out);
             else if (args.length == 2) clans(out);
         } else if (name.equals("jutsu")) {
-            if (args.length == 1) out.addAll(List.of("list", "cast"));
-            else if (args.length == 2 && args[0].equalsIgnoreCase("cast")) out.addAll(plugin.jutsus().ids());
+            if (args.length == 1) out.addAll(List.of("list", "info", "cast", "bind", "unbind", "binds"));
+            else if (args.length == 2 && (args[0].equalsIgnoreCase("cast") || args[0].equalsIgnoreCase("info"))) out.addAll(plugin.jutsus().ids());
+            else if (args.length == 2 && (args[0].equalsIgnoreCase("bind") || args[0].equalsIgnoreCase("unbind"))) out.addAll(List.of("1", "2", "3", "4", "5", "6", "7", "8", "9"));
+            else if (args.length == 3 && args[0].equalsIgnoreCase("bind")) out.addAll(plugin.jutsus().ids());
         } else if (name.equals("bond")) {
             if (args.length == 1) out.addAll(List.of("request", "accept", "break", "list"));
             else if (args.length == 2) players(out);
@@ -402,13 +615,23 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
                 if (sender.hasPermission("shinobi.admin")) out.add("admin");
             } else if (args[0].equalsIgnoreCase("admin") && sender.hasPermission("shinobi.admin")) {
                 if (args.length == 2) {
-                    out.addAll(List.of("clan", "nature", "learn", "forget", "scroll", "item", "paper", "chakra", "awaken", "reset", "mangekyo", "reload"));
+                    out.addAll(List.of("clan", "nature", "learn", "forget", "scroll", "item", "paper", "chakra", "awaken", "level", "cooldown", "refill", "mastery", "roll", "info", "eternal", "reset", "mangekyo", "reload"));
                 } else if (args.length == 3) {
                     players(out);
                 } else if (args.length == 4) {
                     String sub = args[1].toLowerCase(Locale.ROOT);
                     switch (sub) {
                         case "clan" -> clans(out);
+                        case "awaken" -> {
+                            clans(out);
+                            out.add("off");
+                        }
+                        case "tomoe", "level" -> out.addAll(List.of("1", "2", "3", "auto"));
+                        case "mastery" -> {
+                            out.add("all");
+                            out.addAll(plugin.jutsus().ids());
+                        }
+                        case "eternal" -> out.addAll(List.of("on", "off"));
                         case "nature" -> Arrays.stream(Nature.values()).forEach(n -> out.add(n.name().toLowerCase(Locale.ROOT)));
                         case "learn" -> {
                             out.add("all");
