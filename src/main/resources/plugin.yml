@@ -1,0 +1,33 @@
+name: ShinobiSMP
+version: ${version}
+main: dev.shinobi.ShinobiPlugin
+api-version: '1.21'
+description: Private Naruto-style chakra, jutsu, dojutsu and taijutsu system for a survival SMP.
+commands:
+  shinobi:
+    description: Open the shinobi menu, view stats, or use admin tools.
+    usage: /shinobi [stats|help|admin ...]
+    aliases: [shi]
+  bind:
+    description: Bind a clan (and its abilities) to a player.
+    usage: /bind <player> <uchiha|hyuga|uzumaki|hatake|nara|none>
+    permission: shinobi.admin
+  jutsu:
+    description: List your jutsu or cast a seal-less jutsu.
+    usage: /jutsu <list|cast <id>>
+  bond:
+    description: Bond with a friend (needed for Mangekyou awakening).
+    usage: /bond <request <player>|accept|break <player>|list>
+  mission:
+    description: List or abandon your missions.
+    usage: /mission [list|abandon <number>]
+  dojutsu:
+    description: Toggle your dojutsu.
+    usage: /dojutsu toggle
+  gate:
+    description: Open or close the Eight Gates.
+    usage: /gate <open|close>
+permissions:
+  shinobi.admin:
+    description: Shinobi admin commands.
+    default: op

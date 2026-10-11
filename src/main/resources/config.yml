@@ -1,0 +1,68 @@
+# ShinobiSMP configuration
+seal-mode:
+  enabled: true
+  seal-timeout-ms: 3000      # max gap between two seals before the sequence resets
+  idle-exit-ms: 15000        # seal mode closes itself after this much inactivity
+
+chakra:
+  base-max: 100.0
+  max-cap: 400.0
+  base-regen: 2.0            # per second
+  meditation-multiplier: 3.0 # sneak and stand still
+  meditation-growth: 0.05    # max chakra gained per second of meditation
+  dojutsu-upkeep: 2.0        # per second while a dojutsu is active
+
+pvp: true                    # false = jutsu never hurt other players
+
+starter-jutsu:
+  - substitution
+
+# Chance (0-1) per clan, rolled once on a player's first join. Most players get none.
+clans:
+  roll-chance:
+    uchiha: 0.06
+    hyuga: 0.06
+    uzumaki: 0.05
+    hatake: 0.05
+    nara: 0.07
+
+awakening:
+  near-death-health: 4.0     # a clan member awakens when pushed to this health or lower
+
+bond:
+  mangekyo-witness-range: 40.0
+
+mangekyo:
+  owner-death: return        # return | transfer | keep
+
+gates:
+  min-health-to-open: 12.0
+  death-gate-lethal: false   # true = Gate of Death kills, like canon
+
+# Override any jutsu's hand seals here (seal names: rat ox tiger hare dragon snake horse ram monkey bird dog boar).
+# Defaults are in code; the Substitution default is NOT verified against canon - edit freely.
+jutsu-seals: {}
+#  substitution: [ram, boar, ox, dog, snake]
+
+# ---- extra systems ----
+block-damage: false          # explosive tags may break blocks if true (earth/water walls are always temporary)
+
+sharingan:
+  dodge-chance: 0.20
+  copy-minutes: 10           # how long a copied jutsu lasts
+  copy-range: 25.0
+
+loot:
+  scroll-chance: 0.10        # chance a generated loot chest also contains a random jutsu scroll
+  gear-chance: 0.15          # chance it contains a few kunai or shuriken
+
+hud:
+  enabled: true
+
+# Optional resource pack (custom item textures + HUD glyphs). Leave disabled unless the pack is installed,
+# otherwise custom items show as missing-model cubes.
+resource-pack:
+  enabled: false
+  url: ""
+  sha1: ""
+  force: false
