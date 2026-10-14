@@ -12,6 +12,7 @@ import java.util.Locale;
  *   <li>v1 (no {@code schema-version} key): original v0.6 layout.</li>
  *   <li>v2: Hatake clan replaced by Senju. {@code legacy-clan} records the old value and {@code clan-history} gets one entry.</li>
 
+ *   <li>v6: explicit {@code dojutsu-stage} and {@code mangekyo-awakening} (seeded from legacy tomoe/mangekyo/eternal; existing values never overwritten).</li>
  *   <li>v5: {@code mangekyo-powers} list (a player may hold several Mangekyo powers), seeded from the legacy single {@code mangekyo}.</li>
  *   <li>v4: explicit {@code forced-bloodlines} / {@code forced-abilities} lists (administrator-forced access). Nothing is removed.</li>
  *   <li>v3: persisted {@code bloodlines} list, seeded from legacy Mangekyo / Eternal fields. Nothing is removed.</li>
@@ -19,7 +20,7 @@ import java.util.Locale;
  * Running a migration twice changes nothing the second time. Files newer than {@link #CURRENT} are never touched.
  */
 public final class SchemaMigrator {
-    public static final int CURRENT = 5;
+    public static final int CURRENT = 6;
     public static final String KEY_VERSION = "schema-version";
 
     /** Minimal key/value view over a profile document (adapter for YamlConfiguration in ProfileManager). */
@@ -45,8 +46,31 @@ public final class SchemaMigrator {
         if (v < 3) toV3(c);
         if (v < 4) toV4(c);
         if (v < 5) toV5(c);
+        if (v < 6) toV6(c);
         c.set(KEY_VERSION, CURRENT);
         return true;
+    }
+
+    private static void toV6(Doc c) {
+        if (c.getString("dojutsu-stage") == null) {
+            String stage = "DORMANT";
+            boolean uchiha = "UCHIHA".equalsIgnoreCase(c.getString("clan"));
+            String mk = c.getString("mangekyo");
+            boolean hasMk = (mk != null && !mk.isBlank()) || !c.getStringList("mangekyo-powers").isEmpty();
+            int tomoe = c.getInt("tomoe", 0);
+            if (uchiha) {
+                if (c.getBoolean("eternal", false)) stage = "ETERNAL";
+                else if (hasMk) stage = "MANGEKYO";
+                else if (tomoe >= 3) stage = "THREE";
+                else if (tomoe == 2) stage = "TWO";
+                else if (tomoe == 1) stage = "ONE";
+            }
+            c.set("dojutsu-stage", stage);
+        }
+        if (c.getString("mangekyo-awakening") == null) {
+            String st = c.getString("dojutsu-stage");
+            c.set("mangekyo-awakening", "MANGEKYO".equals(st) || "ETERNAL".equals(st) ? "AWAKENED" : "DORMANT");
+        }
     }
 
     private static void toV5(Doc c) {

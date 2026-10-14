@@ -14,6 +14,9 @@ public final class AllLogicTests {
         SusanooLogicTests.main(args);
         HeadgearLogicTests.main(args);
         CastRouteGuardTests.main(args);
+        GradeLogicTests.main(args);
+        DojutsuProgressionTests.main(args);
+        BindInputTests.main(args);
         System.out.println("all logic tests passed");
     }
 }

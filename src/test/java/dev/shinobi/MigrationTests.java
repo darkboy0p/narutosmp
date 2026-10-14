@@ -53,7 +53,7 @@ public final class MigrationTests {
         check("one history entry", h.getStringList("clan-history").size() == 1 && h.getStringList("clan-history").get(0).startsWith("HATAKE->SENJU"));
         check("version is current", SchemaMigrator.versionOf(h) == SchemaMigrator.CURRENT);
         check("bloodlines list created (empty for Senju)", h.m.containsKey("bloodlines") && h.getStringList("bloodlines").isEmpty());
-        check("no other key changed or lost", sameExcept(before, h.m, "clan", "legacy-clan", "clan-history", "bloodlines", "forced-bloodlines", "forced-abilities", "mangekyo-powers", SchemaMigrator.KEY_VERSION));
+        check("no other key changed or lost", sameExcept(before, h.m, "clan", "legacy-clan", "clan-history", "bloodlines", "forced-bloodlines", "forced-abilities", "mangekyo-powers", "dojutsu-stage", "mangekyo-awakening", SchemaMigrator.KEY_VERSION));
         check("no keys disappeared", h.m.keySet().containsAll(before.keySet()));
 
         // --- idempotence ---
@@ -72,7 +72,7 @@ public final class MigrationTests {
         Map<String, Object> v2Before = new LinkedHashMap<>(v2.m);
         check("v2 file migrates to current", SchemaMigrator.migrate(v2) && SchemaMigrator.versionOf(v2) == SchemaMigrator.CURRENT);
         check("v2 history untouched", v2.getStringList("clan-history").equals(v2Before.get("clan-history")));
-        check("v2 other keys unchanged", sameExcept(v2Before, v2.m, "bloodlines", "forced-bloodlines", "forced-abilities", "mangekyo-powers", SchemaMigrator.KEY_VERSION));
+        check("v2 other keys unchanged", sameExcept(v2Before, v2.m, "bloodlines", "forced-bloodlines", "forced-abilities", "mangekyo-powers", "dojutsu-stage", "mangekyo-awakening", SchemaMigrator.KEY_VERSION));
 
         // --- Uchiha legacy Mangekyo seeds bloodlines ---
         MapDoc u = legacyProfile("UCHIHA").put("mangekyo", "amaterasu").put("eternal", true);
@@ -98,7 +98,7 @@ public final class MigrationTests {
         Map<String, Object> v3Before = new LinkedHashMap<>(v3.m);
         check("v3 file migrates to current", SchemaMigrator.migrate(v3) && SchemaMigrator.versionOf(v3) == SchemaMigrator.CURRENT);
         check("v4 adds empty forced lists", v3.getStringList("forced-bloodlines").isEmpty() && v3.getStringList("forced-abilities").isEmpty());
-        check("v3 data untouched by v4", sameExcept(v3Before, v3.m, "forced-bloodlines", "forced-abilities", "mangekyo-powers", SchemaMigrator.KEY_VERSION));
+        check("v3 data untouched by v4", sameExcept(v3Before, v3.m, "forced-bloodlines", "forced-abilities", "mangekyo-powers", "dojutsu-stage", "mangekyo-awakening", SchemaMigrator.KEY_VERSION));
         MapDoc forced = legacyProfile("NARA").put(SchemaMigrator.KEY_VERSION, 3).put("forced-abilities", List.of("amaterasu")).put("forced-bloodlines", List.of("ice_release"));
         SchemaMigrator.migrate(forced);
         check("existing forced grants survive migration", forced.getStringList("forced-abilities").equals(List.of("amaterasu")) && forced.getStringList("forced-bloodlines").equals(List.of("ice_release")));
@@ -111,7 +111,7 @@ public final class MigrationTests {
         check("v4 file migrates to current", SchemaMigrator.migrate(v4) && SchemaMigrator.versionOf(v4) == SchemaMigrator.CURRENT);
         check("legacy mangekyo power seeds mangekyo-powers", v4.getStringList("mangekyo-powers").equals(List.of("susanoo")));
         check("legacy mangekyo field kept as the primary power", "susanoo".equals(v4.getString("mangekyo")));
-        check("v5 leaves everything else alone", sameExcept(v4Before, v4.m, "mangekyo-powers", SchemaMigrator.KEY_VERSION));
+        check("v5 leaves everything else alone", sameExcept(v4Before, v4.m, "mangekyo-powers", "dojutsu-stage", "mangekyo-awakening", SchemaMigrator.KEY_VERSION));
         MapDoc noPower = legacyProfile("UCHIHA").put(SchemaMigrator.KEY_VERSION, 4);
         SchemaMigrator.migrate(noPower);
         check("no power -> empty list", noPower.getStringList("mangekyo-powers").isEmpty());
@@ -120,6 +120,28 @@ public final class MigrationTests {
         check("existing multi-power list preserved, primary not duplicated", multi.getStringList("mangekyo-powers").equals(List.of("amaterasu", "susanoo")));
         Map<String, Object> afterV5 = new LinkedHashMap<>(v4.m);
         check("v5 migration is idempotent", !SchemaMigrator.migrate(v4) && afterV5.equals(v4.m));
+
+        // --- v6: dojutsu stage + mangekyo awakening seeded from legacy fields ---
+        MapDoc s6a = legacyProfile("UCHIHA").put(SchemaMigrator.KEY_VERSION, 5).put("tomoe", 2);
+        SchemaMigrator.migrate(s6a);
+        check("v6 tomoe 2 -> TWO", "TWO".equals(s6a.getString("dojutsu-stage")) && "DORMANT".equals(s6a.getString("mangekyo-awakening")));
+        MapDoc s6b = legacyProfile("UCHIHA").put(SchemaMigrator.KEY_VERSION, 5).put("tomoe", 3);
+        SchemaMigrator.migrate(s6b);
+        check("v6 tomoe 3 -> THREE", "THREE".equals(s6b.getString("dojutsu-stage")));
+        MapDoc s6c = legacyProfile("UCHIHA").put(SchemaMigrator.KEY_VERSION, 5).put("mangekyo", "amaterasu");
+        SchemaMigrator.migrate(s6c);
+        check("v6 legacy mangekyo -> MANGEKYO + AWAKENED", "MANGEKYO".equals(s6c.getString("dojutsu-stage")) && "AWAKENED".equals(s6c.getString("mangekyo-awakening")));
+        MapDoc s6d = legacyProfile("UCHIHA").put(SchemaMigrator.KEY_VERSION, 5).put("mangekyo", "amaterasu").put("eternal", true);
+        SchemaMigrator.migrate(s6d);
+        check("v6 eternal -> ETERNAL", "ETERNAL".equals(s6d.getString("dojutsu-stage")));
+        MapDoc s6e = legacyProfile("NARA").put(SchemaMigrator.KEY_VERSION, 5).put("tomoe", 3);
+        SchemaMigrator.migrate(s6e);
+        check("v6 non-Uchiha stays DORMANT", "DORMANT".equals(s6e.getString("dojutsu-stage")));
+        MapDoc s6f = legacyProfile("UCHIHA").put(SchemaMigrator.KEY_VERSION, 5).put("tomoe", 1).put("dojutsu-stage", "THREE");
+        SchemaMigrator.migrate(s6f);
+        check("v6 never overwrites an existing stage", "THREE".equals(s6f.getString("dojutsu-stage")));
+        Map<String, Object> afterV6 = new LinkedHashMap<>(s6a.m);
+        check("v6 migration is idempotent", !SchemaMigrator.migrate(s6a) && afterV6.equals(s6a.m));
 
         // --- newer files are never modified ---
         MapDoc future = legacyProfile("HATAKE").put(SchemaMigrator.KEY_VERSION, SchemaMigrator.CURRENT + 5);

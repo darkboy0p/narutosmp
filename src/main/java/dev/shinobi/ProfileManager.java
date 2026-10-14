@@ -45,7 +45,8 @@ public final class ProfileManager {
     private static final Set<String> KNOWN = Set.of(
             SchemaMigrator.KEY_VERSION, "rolled", "nature", "nature-revealed", "clan", "legacy-clan", "clan-history",
             "awakened", "max-chakra", "known", "mastery", "mangekyo", "strain", "eternal", "tomoe", "binds",
-            "weighted-seconds", "completed-missions", "missions", "bonds", "bloodlines", "forced-bloodlines", "forced-abilities", "mangekyo-powers", "headband-worn");
+            "weighted-seconds", "completed-missions", "missions", "bonds", "bloodlines", "forced-bloodlines", "forced-abilities", "mangekyo-powers", "headband-worn",
+            "dojutsu-stage", "mangekyo-awakening", "smp-grade");
 
     private final ShinobiPlugin plugin;
     private final File dir;
@@ -191,6 +192,10 @@ public final class ProfileManager {
             for (String k : m.getKeys(false)) pr.mastery.put(k, Math.max(0, m.getInt(k)));
         }
         pr.headbandWorn = c.getBoolean("headband-worn", false);
+        pr.dojutsuStage = DojutsuProgression.Stage.parse(c.getString("dojutsu-stage")).name();
+        // an awakening that was IN_PROGRESS when the server stopped has no running sequence: fall back safely (never AWAKENED)
+        pr.mangekyoAwakening = DojutsuProgression.recoverOnLoad(DojutsuProgression.Awakening.parse(c.getString("mangekyo-awakening"))).name();
+        pr.smpGrade = c.getString("smp-grade");
         pr.mangekyo = c.getString("mangekyo");
         for (String mp : c.getStringList("mangekyo-powers")) if (MangekyoManager.ABILITIES.contains(mp)) pr.mangekyoPowers.add(mp);
         if (pr.mangekyo != null && MangekyoManager.ABILITIES.contains(pr.mangekyo)) pr.mangekyoPowers.add(pr.mangekyo); // legacy single power
@@ -317,6 +322,9 @@ public final class ProfileManager {
         c.set("known", new ArrayList<>(pr.known));
         for (Map.Entry<String, Integer> e : pr.mastery.entrySet()) c.set("mastery." + e.getKey(), e.getValue());
         c.set("headband-worn", pr.headbandWorn);
+        c.set("dojutsu-stage", pr.dojutsuStage);
+        c.set("mangekyo-awakening", pr.mangekyoAwakening);
+        c.set("smp-grade", pr.smpGrade);
         c.set("mangekyo", pr.mangekyo);
         c.set("mangekyo-powers", new ArrayList<>(pr.mangekyoPowers));
         c.set("strain", pr.strain);

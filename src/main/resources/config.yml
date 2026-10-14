@@ -46,6 +46,17 @@ easy-mode:
   ignore-nature: true        # chakra nature never blocks a technique
   quick-cast: true           # click a technique in /jutsu (or /shinobi > Jutsu Book) or use /jutsu cast <id> instead of seals
 
+# Hotbar binds (/jutsu bind). Shift + number key from ANOTHER slot always fires the bound technique.
+# Paper receives no event when the key of the ALREADY-SELECTED slot is pressed, so for that case use a sneak gesture:
+#   double-sneak (default): tap sneak twice within double-tap-window-ms while the bound slot is selected
+#   sneak: a single sneak press fires the bound technique of the selected slot (may fire when you only meant to crouch)
+#   off: only the Shift + number (slot change) route works
+# Note: in double-sneak mode a bound selected slot takes priority over the Sharingan double-sneak dodge on that slot.
+bind-activation:
+  selected-slot-mode: double-sneak
+  double-tap-window-ms: 300
+  dedup-ms: 150        # one physical input seen through two events fires once
+
 scrolls:
   craftable: true            # every technique scroll can be crafted: Blank Scroll + Ink Sac + 2x a catalyst (/jutsu info shows it). Needs a restart to change.
 

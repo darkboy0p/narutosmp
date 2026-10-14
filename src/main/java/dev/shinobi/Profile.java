@@ -20,6 +20,9 @@ public final class Profile {
     public boolean readOnly;                     // transient: set when the file is newer/unsafe; saves are refused
     public String unknownClan;                   // raw clan string we could not parse; written back untouched
     public final Set<String> bloodlines = new LinkedHashSet<>(); // granted/earned (non-innate) bloodline ids
+    public String dojutsuStage = "DORMANT";          // DojutsuProgression.Stage name (separate from tomoe/awakened)
+    public String mangekyoAwakening = "DORMANT";     // DojutsuProgression.Awakening name
+    public String smpGrade;                           // GradeRules grade id; null = first enabled grade
     public boolean headbandWorn;                                        // wearing the cosmetic Shinobi Headband (any helmet)
     public final Set<String> mangekyoPowers = new LinkedHashSet<>();    // every unlocked Mangekyo power (mangekyo = primary)
     public final Set<String> forcedBloodlines = new LinkedHashSet<>(); // administrator-FORCED bloodline access (explicit, persistent)

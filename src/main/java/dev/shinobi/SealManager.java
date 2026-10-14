@@ -7,7 +7,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Hand-seal input. Swap-hands (F) toggles seal mode; Shift+F toggles your dojutsu.
@@ -15,6 +21,8 @@ import java.util.List;
  */
 public final class SealManager implements Listener {
     private final ShinobiPlugin plugin;
+    private final Map<UUID, Long> lastSneak = new HashMap<>();   // previous sneak press (selected-slot bind gesture)
+    private final Map<UUID, Long> lastBindFire = new HashMap<>(); // dedup across slot-change and sneak triggers
 
     public SealManager(ShinobiPlugin plugin) {
         this.plugin = plugin;
@@ -45,20 +53,72 @@ public final class SealManager implements Listener {
         Player p = e.getPlayer();
         Profile pr = plugin.profiles().get(p);
         if (pr.session == null) {
-            // Keybinds: hold Shift and press a number key whose hotbar slot has a bound jutsu.
-            if (p.isSneaking() && plugin.casting().easy("quick-cast")) {
-                String id = pr.binds[e.getNewSlot()];
-                Jutsu j = id == null ? null : plugin.jutsus().get(id);
-                if (j != null) {
-                    e.setCancelled(true);
-                    plugin.casting().cast(p, pr, j);
-                }
+            // Keybinds: hold Shift and press a number key whose hotbar slot has a bound jutsu (slot CHANGE path).
+            // The selected-slot case (no slot change, no event) is handled by onSneakBind below.
+            int slot = e.getNewSlot();
+            BindInput.Decision d = decide(p, pr, BindInput.Trigger.HELD_CHANGE, slot, p.isSneaking());
+            if (d.fire()) {
+                e.setCancelled(true);
+                fire(p, pr, d);
             }
             return;
         }
         e.setCancelled(true);
         Seal s = Seal.fromInput(e.getNewSlot(), p.isSneaking());
         if (s != null) input(p, pr, s);
+    }
+
+    /** Selected-slot activation: Paper sends no event when a key for the already-selected slot is pressed, so a sneak gesture is used. */
+    @EventHandler
+    public void onSneakBind(PlayerToggleSneakEvent e) {
+        if (!e.isSneaking()) return;
+        Player p = e.getPlayer();
+        Profile pr = plugin.profiles().get(p);
+        BindInput.Decision d = decide(p, pr, BindInput.Trigger.SNEAK_START, p.getInventory().getHeldItemSlot(), true);
+        long now = System.currentTimeMillis();
+        if (d.fire()) {
+            lastSneak.remove(p.getUniqueId());
+            fire(p, pr, d);
+        } else {
+            lastSneak.put(p.getUniqueId(), now);
+        }
+    }
+
+    @EventHandler
+    public void onQuitClear(PlayerQuitEvent e) {
+        lastSneak.remove(e.getPlayer().getUniqueId());
+        lastBindFire.remove(e.getPlayer().getUniqueId());
+    }
+
+    /** True when the selected slot has a live bind that should win over the Sharingan double-sneak dodge. */
+    public boolean selectedBindWinsOverDodge(Player p, Profile pr) {
+        int slot = p.getInventory().getHeldItemSlot();
+        String id = slot >= 0 && slot < pr.binds.length ? pr.binds[slot] : null;
+        boolean exists = id != null && plugin.jutsus().get(id) != null;
+        return BindInput.boundWinsOverDodge(mode(), exists) && pr.session == null && plugin.casting().easy("quick-cast");
+    }
+
+    private BindInput.Mode mode() {
+        return BindInput.Mode.parse(plugin.getConfig().getString("bind-activation.selected-slot-mode", "double-sneak"));
+    }
+
+    private BindInput.Decision decide(Player p, Profile pr, BindInput.Trigger t, int slot, boolean sneaking) {
+        String id = slot >= 0 && slot < pr.binds.length ? pr.binds[slot] : null;
+        boolean exists = id != null && plugin.jutsus().get(id) != null;
+        long window = plugin.getConfig().getLong("bind-activation.double-tap-window-ms", 300L);
+        long dedup = plugin.getConfig().getLong("bind-activation.dedup-ms", 150L);
+        return BindInput.resolve(t, mode(), plugin.casting().easy("quick-cast"), pr.session != null,
+                plugin.charging().isCharging(p.getUniqueId()), slot, sneaking, pr.binds, exists,
+                System.currentTimeMillis(), lastSneak.getOrDefault(p.getUniqueId(), 0L), window,
+                lastBindFire.getOrDefault(p.getUniqueId(), 0L), dedup);
+    }
+
+    /** Server-side cast: the engine still checks learned/unlocked, chakra, cooldown, range and transformation compatibility. */
+    private void fire(Player p, Profile pr, BindInput.Decision d) {
+        Jutsu j = plugin.jutsus().get(d.jutsuId());
+        if (j == null) return;
+        lastBindFire.put(p.getUniqueId(), System.currentTimeMillis());
+        plugin.casting().cast(p, pr, j);
     }
 
     public void enter(Player p, Profile pr) {

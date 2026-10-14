@@ -194,6 +194,7 @@ public final class DodgeManager implements Listener {
         Player p = e.getPlayer();
         Profile pr = plugin.profiles().get(p);
         if (pr.clan != Clan.UCHIHA || !pr.dojutsuActive) return;
+        if (plugin.seals().selectedBindWinsOverDodge(p, pr)) return; // same gesture: a bound selected slot takes priority
         long now = System.currentTimeMillis();
         long window = plugin.getConfig().getLong("sharingan.dodge.double-tap-window-ms", 300L);
         Long last = lastSneak.get(p.getUniqueId());
