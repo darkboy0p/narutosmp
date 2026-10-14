@@ -30,8 +30,14 @@ jobs:
       - name: Build plugin jar
         run: gradle build --no-daemon
 
+      - name: Run logic tests
+        run: gradle logicTests --no-daemon
+
       - name: Build resource pack
         run: python3 tools/make_pack.py
+
+      - name: Verify resource pack references
+        run: python3 tools/verify_pack.py
 
       - name: Show resource pack SHA-1
         run: |
