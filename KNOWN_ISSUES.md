@@ -1,0 +1,31 @@
+# Known issues and limitations
+
+- **No compile has been run** on any Bukkit-facing code written since v0.6 (Stage 1, 2, 3a). Expect compile errors until Actions is run.
+- No in-game testing of anything.
+- Existing jutsu are not yet moved onto `EffectRegistry` (they keep their own cleanup).
+- Temporary-block journal is written up to one tick after placement; no region-protection check yet.
+- Charging: server-side controls only (swing / swap-hand / sneak); no ability-item mode; effects are particles, not a hand-attached model.
+- Damage uses normal damage events so protection plugins may veto it; never tested with WorldGuard or similar.
+- Bloodlines: rare bloodlines are definitions only (disabled, no abilities). Rare clan lists are server-design suggestions.
+- Senju still uses the carried-over White Light Sabre; Wood Release abilities do not exist yet.
+- No resource-pack assets exist yet for bloodline icons, new eye stages beyond the original set, or ability sounds.
+- Jutsu seal combos and the Rasenshuriken progression gate are read at startup; `/shinobi admin reload` does not refresh them.
+- Sharingan dodge: direction is inferred from recent movement (no key access); double-sneak is also a normal gameplay input for Uchiha with Sharingan active (disable with `sharingan.dodge.double-sneak: false`).
+- Dodge uses `Player#teleport`; protection plugins that cancel teleports will block it, ones that ignore plugin teleports will not stop it. Untested with any.
+- The jutsu book shows the dodge's base cooldown (5s), not the per-stage value.
+- The passive random Sharingan dodge from v0.6 still exists alongside the active dodge.
+- `DodgeManager#onMove` runs for every moving player (cheap early exits, but untested under load).
+- Migration backup file copy and the YAML adapter are only code-reviewed; the migration *rules* are unit-tested.
+- Amaterasu, Kamui, Tsukuyomi and Susanoo are still the simple v0.6 implementations; Kamui has no restart-recovery journal yet.
+- **Visuals unverified in a client.** Headband/eye rendering relies on equipment assets; alignment, skin compatibility (slim/custom) and the 1 px armor inflation offset are untested. Eyes show only while the Shinobi Headband is worn; the 512x256 equipment layer size is an unverified assumption; eyes are a still frame of the icon art (no animation on the face).
+- No client companion mod exists: no exact key hold/release detection, no shaders, no animated models. The existing charge system uses server-side particles (visible to nearby players, untested in multiplayer).
+- Admin: legacy admin commands are permission-split but not audited; several specified subcommands do not exist (see docs/ADMIN_COMMANDS.md); no admin GUI.
+- Forced access skips only access checks; techniques with internal assumptions (e.g. `mangekyo_ability`) may still refuse.
+- Offline admin edits need `admin.allow-offline-edits` and an existing profile; names resolve only via Paper's offline-player cache (UUIDs always work).
+- HeadgearManager: the ItemDisplay tracking is a teleport every update-ticks (default 2). Client-side smoothing reduces jitter, but fast head movement may still look slightly offset. A client mod could attach it to the head bone exactly.
+- HeadgearManager: `show-to-owner: false` hides the display from the wearer's own first-person view; set it to true if you want to see it in third-person.
+- Orb display: spawned at the hand/mouth approximation; it lags the exact hand by whatever the server tick rate allows.
+- Old leather-helmet headbands are upgraded on join, but offline inventory contents are not upgraded until the player joins.
+- The headband model uses face-direction (-Z north); `headgear.model-yaw-offset` (default 180) corrects this for a player facing +Z. If the knot appears at the front, set it to 0.
+- SusanooState is a new pure class replacing the old Stage int fields; the existing "first cast starts, each cast adds a stage" logic is preserved.
+- MangekyoManager: multi-power support (mangekyo.max-powers-per-player) is new but untested; default is 1 = original behaviour.

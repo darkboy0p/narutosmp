@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.potion.PotionEffect;
@@ -91,7 +92,13 @@ public final class ShinobiListener implements Listener {
         pr.rasenganUntil = 0;
         plugin.training().stopAll(pr);
         plugin.susanoo().end(p);
+        plugin.effects().cleanup(p.getUniqueId(), EffectRegistry.Reason.QUIT);
         plugin.profiles().unload(p.getUniqueId());
+    }
+
+    @EventHandler
+    public void onWorldChange(PlayerChangedWorldEvent e) {
+        plugin.effects().cleanup(e.getPlayer().getUniqueId(), EffectRegistry.Reason.WORLD_CHANGE);
     }
 
     // ---------------------------------------------------------------- combat
@@ -188,6 +195,7 @@ public final class ShinobiListener implements Listener {
         }
 
         plugin.susanoo().end(victim);
+        plugin.effects().cleanup(victim.getUniqueId(), EffectRegistry.Reason.DEATH);
         plugin.training().stopAll(pr);
         pr.gate = 0;
         pr.dojutsuActive = false;

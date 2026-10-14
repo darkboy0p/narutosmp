@@ -15,8 +15,11 @@ import java.util.Locale;
 public final class ShinobiCommands implements CommandExecutor, TabCompleter {
     private final ShinobiPlugin plugin;
 
+    private final AdminCommands adminCmds;
+
     public ShinobiCommands(ShinobiPlugin plugin) {
         this.plugin = plugin;
+        this.adminCmds = new AdminCommands(plugin);
     }
 
     @Override
@@ -24,12 +27,12 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
         switch (cmd.getName().toLowerCase(Locale.ROOT)) {
             case "shinobi" -> shinobi(sender, args);
             case "bind" -> {
-                if (!sender.hasPermission("shinobi.admin")) {
+                if (!sender.hasPermission(AdminPerms.CLAN)) {
                     Msg.send(sender, "<red>No permission.");
                     return true;
                 }
                 if (args.length < 2) {
-                    Msg.send(sender, "<gray>Usage: /bind [player] [uchiha|hyuga|uzumaki|hatake|nara|none]");
+                    Msg.send(sender, "<gray>Usage: /bind [player] [uchiha|hyuga|uzumaki|senju|nara|none]");
                     return true;
                 }
                 bindClan(sender, args[0], args[1]);
@@ -81,17 +84,21 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
                 Msg.send(p, "<gray>Chakra: <aqua>" + (int) pr.chakra + "<gray>/<aqua>" + (int) plugin.chakra().effectiveMax(pr));
                 if (pr.mangekyo != null) Msg.send(p, "<gray>Mangekyou: <dark_red>" + MangekyoManager.display(pr.mangekyo));
             }
+            case "headband" -> {
+                Player p = player(sender);
+                if (p != null) plugin.headgear().toggle(p);
+            }
             case "weights" -> {
                 Player p = player(sender);
                 if (p != null) plugin.training().toggleWeights(p, plugin.profiles().get(p));
             }
             case "admin" -> admin(sender, Arrays.copyOfRange(args, 1, args.length));
             default -> {
-                Msg.send(sender, "<gray>/shinobi <white>(menu)<gray>, /shinobi stats, /jutsu list, /bond, /dojutsu toggle, /gate open|close");
+                Msg.send(sender, "<gray>/shinobi <white>(menu)<gray>, /shinobi stats, /shinobi headband, /jutsu list, /bond, /dojutsu toggle, /gate open|close");
                 Msg.send(sender, "<gray>Press <white>F<gray> then two number keys (1-8) for hand seals; or <white>/jutsu<gray> and click a technique.");
                 Msg.send(sender, "<gray>Keybind: <white>/jutsu bind [slot 1-9] [jutsu id]<gray>, then hold <white>Shift + that number key<gray> to cast it.");
                 Msg.send(sender, "<gray>Dojutsu: <white>Shift+F<gray> toggles Sharingan (Uchiha) or Byakugan (Hyuga). Costs chakra per second.");
-                Msg.send(sender, "<gray>Uchiha: dodge hits, copy jutsu, cheaper fire, Mangekyou. Hyuga: see through walls + Gentle Fist (bare-hand hit seals chakra). Uzumaki: bigger chakra + Chains. Hatake: White Light Sabre. Nara: Shadow Possession.");
+                Msg.send(sender, "<gray>Uchiha: dodge hits, copy jutsu, cheaper fire, Mangekyou. Hyuga: see through walls + Gentle Fist (bare-hand hit seals chakra). Uzumaki: bigger chakra + Chains. Senju: vitality and White Light Sabre (Wood Release comes in a later update). Nara: Shadow Possession.");
             }
         }
     }
@@ -99,18 +106,69 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
     // ------------------------------------------------------------------ admin
 
     private void admin(CommandSender sender, String[] a) {
-        if (!sender.hasPermission("shinobi.admin")) {
+        if (AdminPerms.ALL_NODES.stream().noneMatch(sender::hasPermission)) {
             Msg.send(sender, "<red>No permission.");
             return;
         }
         if (a.length == 0) {
-            Msg.send(sender, "<gray>Admin: clan, nature, learn, forget, scroll, item, paper, chakra, awaken, level, cooldown, refill, mastery, roll, info, eternal, reset, mangekyo, reload");
+            Msg.send(sender, "<gray>Admin: clan, nature, learn, forget, scroll, item, paper, chakra, awaken, level, cooldown, refill, mastery, roll, info, eternal, reset, mangekyo, reload, debug, restore, clearfx, bloodline, ability, access, audit");
             return;
         }
         String sub = a[0].toLowerCase(Locale.ROOT);
+        if (!AdminPerms.allowed(sender::hasPermission, sub)) { // per-subcommand node; shinobismp.admin grants all of them
+            Msg.send(sender, "<red>You need <white>" + AdminPerms.nodeFor(sub) + "<red> for that.");
+            return;
+        }
+        if (AdminCommands.handles(sub)) {
+            adminCmds.run(sender, a);
+            return;
+        }
         if (sub.equals("reload")) {
             plugin.reloadConfig();
-            Msg.send(sender, "<green>Config reloaded.");
+            plugin.charging().reload();
+            plugin.bloodlines().reload();
+            Msg.send(sender, "<green>Config reloaded. (Jutsu seal combos and requirements are read at startup.)");
+            return;
+        }
+        if (sub.equals("debug")) {
+            Msg.send(sender, "<gray>Effects: <white>" + plugin.effects().stats());
+            Msg.send(sender, "<gray>Abilities: <white>" + plugin.abilities().stats());
+            Msg.send(sender, "<gray>Charging: <white>" + plugin.charging().stats());
+            Msg.send(sender, "<gray>Dodge: <white>" + plugin.dodges().stats());
+            Msg.send(sender, "<gray>Temp blocks: <white>" + plugin.tempBlocks().count() + " tracked, "
+                    + plugin.tempBlocks().restoredTotal() + " restored this run");
+            Msg.send(sender, "<gray>Profiles: <white>" + plugin.profiles().loadedCount() + " loaded, "
+                    + plugin.profiles().pendingWrites() + " pending writes, " + plugin.profiles().writeFailures() + " write failures");
+            if (a.length >= 2) {
+                Player dt = Bukkit.getPlayerExact(a[1]);
+                if (dt != null) {
+                    List<String> fx = plugin.effects().describe(dt.getUniqueId());
+                    Msg.send(sender, "<gray>" + dt.getName() + " effects: <white>" + (fx.isEmpty() ? "none" : String.join(", ", fx)));
+                }
+            }
+            return;
+        }
+        if (sub.equals("clearfx")) {
+            Player ct = a.length >= 2 ? Bukkit.getPlayerExact(a[1]) : null;
+            if (ct == null) {
+                Msg.send(sender, "<red>Usage: /shinobi admin clearfx [online player]  (ends charges and tracked effects)");
+                return;
+            }
+            plugin.charging().clear(ct.getUniqueId());
+            int n = plugin.effects().cleanup(ct.getUniqueId(), EffectRegistry.Reason.ADMIN);
+            Msg.send(sender, "<green>Cleared " + n + " effect(s) and any active charge for " + ct.getName() + ".");
+            return;
+        }
+        if (sub.equals("restore")) {
+            if (a.length < 2) {
+                Msg.send(sender, "<red>Usage: /shinobi admin restore [player-uuid]  (restores the .bak profile copy; player must be offline)");
+                return;
+            }
+            try {
+                Msg.send(sender, "<gray>" + plugin.profiles().restoreBackup(java.util.UUID.fromString(a[1])));
+            } catch (IllegalArgumentException ex) {
+                Msg.send(sender, "<red>That is not a valid UUID.");
+            }
             return;
         }
         if (a.length < 2) {
@@ -385,7 +443,7 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
         }
         Clan c = Clan.parse(clanName);
         if (c == null) {
-            Msg.send(sender, "<red>Clans: uchiha, hyuga, uzumaki, hatake, nara, none");
+            Msg.send(sender, "<red>Clans: uchiha, hyuga, uzumaki, senju, nara, none");
             return;
         }
         if (pr.clan != c) {
@@ -519,7 +577,7 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
             case UCHIHA -> "dodge " + Math.round((plugin.getConfig().getDouble("sharingan.dodge-chance", 0.20) + 0.05 * (lv - 1)) * 100) + "%, fire jutsu -20% chakra";
             case HYUGA -> "Byakugan range " + (24 + 8 * (lv - 1)) + " blocks, Gentle Fist drains " + (25 + 10 * (lv - 1)) + " chakra";
             case UZUMAKI -> "chakra and regen x" + String.format(Locale.ROOT, "%.2f", 1.25 + 0.25 * lv);
-            case HATAKE -> "White Light Sabre costs " + (20 + 10 * (lv - 1)) + "% less";
+            case SENJU -> "White Light Sabre costs " + (20 + 10 * (lv - 1)) + "% less";
             case NARA -> "Shadow Possession costs " + (10 * lv) + "% less";
         };
     }
@@ -612,10 +670,12 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
         } else if (name.equals("shinobi")) {
             if (args.length == 1) {
                 out.addAll(List.of("stats", "help", "weights"));
-                if (sender.hasPermission("shinobi.admin")) out.add("admin");
-            } else if (args[0].equalsIgnoreCase("admin") && sender.hasPermission("shinobi.admin")) {
-                if (args.length == 2) {
-                    out.addAll(List.of("clan", "nature", "learn", "forget", "scroll", "item", "paper", "chakra", "awaken", "level", "cooldown", "refill", "mastery", "roll", "info", "eternal", "reset", "mangekyo", "reload"));
+                if (AdminPerms.ALL_NODES.stream().anyMatch(sender::hasPermission)) out.add("admin");
+            } else if (args[0].equalsIgnoreCase("admin") && AdminPerms.ALL_NODES.stream().anyMatch(sender::hasPermission)) {
+                if (args.length >= 3 && AdminCommands.handles(args[1].toLowerCase(Locale.ROOT)) && AdminPerms.allowed(sender::hasPermission, args[1])) {
+                    out.addAll(adminCmds.tab(args));
+                } else if (args.length == 2) {
+                    out.addAll(List.of("clan", "nature", "learn", "forget", "scroll", "item", "paper", "chakra", "awaken", "level", "cooldown", "refill", "mastery", "roll", "info", "eternal", "reset", "mangekyo", "reload", "debug", "restore", "clearfx", "bloodline", "ability", "access", "audit"));
                 } else if (args.length == 3) {
                     players(out);
                 } else if (args.length == 4) {
@@ -647,6 +707,8 @@ public final class ShinobiCommands implements CommandExecutor, TabCompleter {
                     }
                 } else if (args.length == 5 && args[1].equalsIgnoreCase("mangekyo")) {
                     out.addAll(MangekyoManager.ABILITIES);
+                } else if (args.length == 5 && args[1].equalsIgnoreCase("bloodline")) {
+                    out.addAll(plugin.bloodlines().registry().ids());
                 }
             }
         }

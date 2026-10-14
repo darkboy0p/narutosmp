@@ -25,6 +25,11 @@ public final class DojutsuManager {
             deactivate(p, pr, null);
             return;
         }
+        BloodlineRules.Result br = plugin.bloodlines().check(pr, pr.clan == Clan.UCHIHA ? "sharingan" : "byakugan");
+        if (br != BloodlineRules.Result.OK) {
+            Msg.bar(p, "<red>" + BloodlineRules.describe(br) + ".");
+            return;
+        }
         if (pr.chakra < 10) {
             Msg.bar(p, "<red>Not enough chakra.");
             return;
@@ -33,6 +38,7 @@ public final class DojutsuManager {
         String name = pr.clan.dojutsuName();
         p.getWorld().playSound(p.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.6f);
         Msg.bar(p, pr.clan.color + name + " activated.");
+        plugin.headgear().refresh(p);
         tick(p, pr);
     }
 
@@ -43,11 +49,13 @@ public final class DojutsuManager {
         p.removePotionEffect(PotionEffectType.NIGHT_VISION);
         p.getWorld().playSound(p.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.6f, 1.6f);
         Msg.bar(p, "<gray>Dojutsu deactivated." + (reason == null ? "" : " " + reason));
+        plugin.headgear().refresh(p);
     }
 
     /** Called once per second while the player is online. */
     public void tick(Player p, Profile pr) {
         if (!pr.dojutsuActive || pr.clan == null) return;
+        plugin.headgear().refresh(p); // keeps the face in sync with stage changes
         p.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 400, 0, true, false, false));
 
         boolean byakugan = pr.clan == Clan.HYUGA;

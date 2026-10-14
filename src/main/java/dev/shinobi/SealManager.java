@@ -22,6 +22,11 @@ public final class SealManager implements Listener {
 
     @EventHandler
     public void onSwap(PlayerSwapHandItemsEvent e) {
+        if (plugin.charging().isCharging(e.getPlayer().getUniqueId())) {
+            e.setCancelled(true);
+            plugin.charging().onSwap(e.getPlayer());
+            return;
+        }
         if (!plugin.getConfig().getBoolean("seal-mode.enabled", true)) return;
         e.setCancelled(true);
         Player p = e.getPlayer();

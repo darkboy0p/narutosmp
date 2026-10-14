@@ -10,8 +10,8 @@ commands:
     aliases: [shi]
   bind:
     description: Bind a clan (and its abilities) to a player.
-    usage: /bind <player> <uchiha|hyuga|uzumaki|hatake|nara|none>
-    permission: shinobi.admin
+    usage: /bind <player> <uchiha|hyuga|uzumaki|senju|nara|none>
+    permission: shinobismp.admin.clan
   jutsu:
     description: List your jutsu or cast a seal-less jutsu.
     usage: /jutsu [list|info <id>|cast <id>|bind <slot> <id>|unbind <slot>|binds]
@@ -32,5 +32,47 @@ commands:
     usage: /gate <open|close>
 permissions:
   shinobi.admin:
-    description: Shinobi admin commands.
+    description: Legacy admin node. Grants shinobismp.admin and therefore every admin permission.
     default: op
+    children:
+      shinobismp.admin: true
+  shinobismp.admin:
+    description: General administrative access. Grants every shinobismp.admin.* node by default (edit the children with a permissions plugin to split duties).
+    default: false
+    children:
+      shinobismp.admin.clan: true
+      shinobismp.admin.bloodline: true
+      shinobismp.admin.abilities: true
+      shinobismp.admin.progression: true
+      shinobismp.admin.chakra: true
+      shinobismp.admin.cooldowns: true
+      shinobismp.admin.data: true
+      shinobismp.admin.reload: true
+      shinobismp.admin.audit: true
+  shinobismp.admin.clan:
+    description: Clan assignment (/bind, /shinobi admin clan).
+    default: false
+  shinobismp.admin.bloodline:
+    description: Bloodline grants, forced grants, revokes and eligibility inspection.
+    default: false
+  shinobismp.admin.abilities:
+    description: Ability unlocks, forced abilities, access explanations, mangekyo and mastery tools.
+    default: false
+  shinobismp.admin.progression:
+    description: Awakening, levels, eternal state, nature and rolls.
+    default: false
+  shinobismp.admin.chakra:
+    description: Chakra and resource commands.
+    default: false
+  shinobismp.admin.cooldowns:
+    description: Cooldown commands.
+    default: false
+  shinobismp.admin.data:
+    description: Profile inspection, resets and backup restore.
+    default: false
+  shinobismp.admin.reload:
+    description: Configuration reload.
+    default: false
+  shinobismp.admin.audit:
+    description: Read the admin audit log.
+    default: false

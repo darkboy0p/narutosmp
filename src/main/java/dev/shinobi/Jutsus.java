@@ -45,12 +45,18 @@ public final class Jutsus {
         r.register(Jutsu.builder("great_fireball", "Fire Release: Great Fireball")
                 .seals(seals(plugin, "great_fireball", Seal.TIGER, Seal.HORSE))
                 .nature(Nature.FIRE).cost(35).cooldown(8000)
-                .effect(Jutsus::greatFireball).build());
+                .effect((pl, p, pr) -> ChargeJutsus.fireball(pl, p, 1.0, 1.0))
+                .charge(ChargeSpec.builder("fire", 15, 45).slowness(-1).damageScale(0.8, 1.6).rangeScale(0.9, 1.4).build(),
+                        ChargeJutsus::fireball)
+                .build());
 
         r.register(Jutsu.builder("chidori", "Chidori")
                 .seals(seals(plugin, "chidori", Seal.OX, Seal.HARE))
                 .nature(Nature.LIGHTNING).cost(30).cooldown(10000)
-                .effect(Jutsus::chidori).build());
+                .effect(Jutsus::chidori)
+                .charge(ChargeSpec.builder("lightning", 30, 70).slowness(1).damageScale(0.7, 1.5).rangeScale(0.8, 1.3).build(),
+                        ChargeJutsus::chidori)
+                .build());
 
         r.register(Jutsu.builder("substitution", "Substitution Technique")
                 .seals(seals(plugin, "substitution", Seal.RAT, Seal.RAT))
@@ -60,22 +66,37 @@ public final class Jutsus {
         r.register(Jutsu.builder("rasengan", "Rasengan")
                 .seals(seals(plugin, "rasengan", Seal.OX, Seal.OX))
                 .cost(40).cooldown(10000)
-                .effect(Jutsus::rasengan).build());
+                .effect(Jutsus::rasengan)
+                .charge(ChargeSpec.builder("rasengan", 20, 50).slowness(0).damageScale(0.7, 1.4).rangeScale(1.0, 1.2).build(),
+                        ChargeJutsus::rasengan)
+                .build());
+
+        r.register(Jutsu.builder("rasenshuriken", "Wind Release: Rasenshuriken")
+                .seals(seals(plugin, "rasenshuriken", Seal.SNAKE, Seal.OX))
+                .nature(Nature.WIND).cost(55).cooldown(25000)
+                .requires("rasengan", Math.max(0, plugin.getConfig().getInt("charging.jutsu.rasenshuriken.requires-rasengan-casts", 30)))
+                .effect((pl, p, pr) -> {
+                    Msg.bar(p, "<red>Rasenshuriken needs charging to be enabled.");
+                    return false;
+                })
+                .charge(ChargeSpec.builder("wind", 50, 100).slowness(2).damageScale(0.8, 1.5).rangeScale(0.9, 1.3).build(),
+                        ChargeJutsus::rasenshuriken)
+                .build());
 
         // ---------------- clan techniques (no scroll needed, clan must be awakened) ----------------
         r.register(Jutsu.builder("chakra_chains", "Adamantine Chakra Chains")
                 .seals(seals(plugin, "chakra_chains", Seal.TIGER, Seal.DRAGON))
-                .clan(Clan.UZUMAKI).known(false).cost(30).cooldown(15000)
+                .clan(Clan.UZUMAKI).bloodline("sealing_arts").known(false).cost(30).cooldown(15000)
                 .effect(Jutsus::chakraChains).build());
 
         r.register(Jutsu.builder("white_light_sabre", "White Light Chakra Sabre")
                 .seals(seals(plugin, "white_light_sabre", Seal.HARE, Seal.HORSE))
-                .clan(Clan.HATAKE).known(false).cost(20).cooldown(6000)
+                .clan(Clan.SENJU).known(false).cost(20).cooldown(6000)
                 .effect(Jutsus::whiteLightSabre).build());
 
         r.register(Jutsu.builder("shadow_bind", "Shadow Possession")
                 .seals(seals(plugin, "shadow_bind", Seal.RAT, Seal.SNAKE))
-                .clan(Clan.NARA).known(false).cost(25).cooldown(14000)
+                .clan(Clan.NARA).bloodline("shadow_manipulation").known(false).cost(25).cooldown(14000)
                 .effect(Jutsus::shadowBind).build());
 
         // ---------------- more ninjutsu (easy 2-seal combos on keys 1-8; edit in config.yml) ----------------
@@ -119,6 +140,13 @@ public final class Jutsus {
                 .cost(15).cooldown(4000)
                 .effect(Jutsus::bodyFlicker).build());
 
+        // Uchiha: directional Sharingan dodge (double-tap sneak, bound slot or the book). Costs/cooldowns come from the dodge tier.
+        r.register(Jutsu.builder("sharingan_dodge", "Sharingan Dodge")
+                .clan(Clan.UCHIHA).bloodline("sharingan").known(false).dojutsu(true)
+                .cost(plugin.getConfig().getDouble("sharingan.dodge.base-chakra-cost", 8.0)).cooldown(5000)
+                .cooldownFor(pr -> plugin.dodges().tierFor(pr).cooldownTicks() * 50L)
+                .effect((pl, p, pr) -> pl.dodges().dodge(p, pr)).build());
+
         // ---------------- chakra-control training (free for everyone, no seals) ----------------
         r.register(Jutsu.builder("wall_walk", "Tree Climbing Practice")
                 .known(false).cost(0).cooldown(1000)
@@ -131,48 +159,19 @@ public final class Jutsus {
         // ---------------- Mangekyou (unique ability is decided by MangekyoManager) ----------------
         r.register(Jutsu.builder("mangekyo_ability", "Mangekyou Technique")
                 .seals(seals(plugin, "mangekyo_ability", Seal.HARE, Seal.HARE))
-                .clan(Clan.UCHIHA).known(false).dojutsu(true).cost(50).cooldown(12000)
-                .effect((pl, p, pr) -> pl.mangekyo().cast(p, pr)).build());
+                .clan(Clan.UCHIHA).bloodline("mangekyo_sharingan").known(false).dojutsu(true).cost(50).cooldown(12000)
+                .redirect(pr -> pr.mangekyo)   // alias: becomes the caster's primary power, so saved binds and seal combos keep working
+                .effect((pl, p, pr) -> false).build());
+        // Each Mangekyou power is its own jutsu: own cooldown, own cost, own unlock. Holding Susanoo never blocks the others.
+        for (String power : MangekyoManager.ABILITIES) {
+            r.register(Jutsu.builder(power, MangekyoManager.display(power))
+                    .clan(Clan.UCHIHA).bloodline("mangekyo_sharingan").mangekyoPower(power).known(false).dojutsu(true)
+                    .cost(50).cooldown(12000)
+                    .effect((pl, p, pr) -> pl.mangekyo().castPower(p, pr, power)).build());
+        }
     }
 
     // =====================================================================================
-
-    private static boolean greatFireball(ShinobiPlugin plugin, Player p, Profile pr) {
-        Location eye = p.getEyeLocation();
-        Vector dir = eye.getDirection().normalize();
-        World w = p.getWorld();
-        Set<UUID> hit = new HashSet<>();
-        Location cur = eye.clone();
-        w.playSound(eye, Sound.ENTITY_BLAZE_SHOOT, 1f, 0.7f);
-        new BukkitRunnable() {
-            int step = 0;
-
-            @Override
-            public void run() {
-                step++;
-                if (step > 22 || !p.isOnline()) {
-                    cancel();
-                    return;
-                }
-                cur.add(dir);
-                if (cur.getBlock().getType().isSolid()) {
-                    w.spawnParticle(Particle.POOF, cur, 20, 0.4, 0.4, 0.4, 0.05);
-                    cancel();
-                    return;
-                }
-                w.spawnParticle(Particle.FLAME, cur, 30, 0.5, 0.5, 0.5, 0.02);
-                w.spawnParticle(Particle.SMOKE, cur, 6, 0.4, 0.4, 0.4, 0.01);
-                for (Entity en : w.getNearbyEntities(cur, 1.8, 1.8, 1.8)) {
-                    if (Fx.canHurt(plugin, p, en) && hit.add(en.getUniqueId())) {
-                        LivingEntity le = (LivingEntity) en;
-                        le.damage(8.0, p);
-                        le.setFireTicks(100);
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
-        return true;
-    }
 
     private static boolean chidori(ShinobiPlugin plugin, Player p, Profile pr) {
         World w = p.getWorld();

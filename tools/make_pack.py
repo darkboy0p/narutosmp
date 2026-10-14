@@ -2,8 +2,7 @@
 """Generates the ShinobiSMP resource pack (item icons + HUD glyph font) with no external dependencies.
 
 Usage: python3 tools/make_pack.py   ->   resourcepack/  and  ShinobiPack.zip
-PACK_FORMAT is for your Minecraft version: 46 = 1.21.4, 55 = 1.21.5, 63 = 1.21.6, 64 = 1.21.7-1.21.8,
-69 = 1.21.9-1.21.10, 75 = 1.21.11 (default). From 1.21.9 on, pack.mcmeta uses min_format/max_format.
+Targets Minecraft 1.21.11 ONLY (resource pack format 75). Other versions are not supported.
 """
 import json, os, struct, zlib, zipfile, hashlib
 
@@ -403,6 +402,7 @@ ANIMATED_EYES = {   # name -> (frame function, frames, frametime)
     "eye_mangekyo_kamui": (mangekyo_kamui, 8, 3), "eye_mangekyo_susanoo": (mangekyo_susanoo, 8, 3),
     "eye_eternal_mangekyo": (eternal_mangekyo, 8, 4), "eye_byakugan": (byakugan, 6, 4),
     "eye_rinnegan": (rinnegan, 6, 5),
+    "eye_tenseigan": (lambda f: _hue_shift(byakugan(f), -42), 6, 4),   # derived from the Byakugan eye (no original Tenseigan art)
 }
 
 # ---------- natures (animated) ----------
@@ -471,6 +471,7 @@ SYM = {
     "flame": ["...#...", "..##...", ".####..", ".#####.", "#######", ".#####.", "..###.."],
     "drop": ["...#...", "..###..", "..###..", ".#####.", ".#####.", ".#####.", "..###.."],
     "swirl": [".#####.", "#.....#", "#.###.#", "#.#...#", "#.#####", "#......", ".######"],
+    "shuriken": ["...#...", "...#...", "..###..", "#######", "..###..", "...#...", "...#..."],
     "bolt": ["....##.", "...##..", "..##...", ".#####.", "...##..", "..##...", ".##...."],
     "brick": ["#######", "#.#.#.#", "#######", ".#.#.#.", "#######", "#.#.#.#", "#######"],
     "log": ["..###..", ".#...#.", "#..#..#", "#.###.#", "#..#..#", ".#...#.", "..###.."],
@@ -494,6 +495,7 @@ JUTSU_ART = {   # id -> (ribbon/symbol color, symbol)
     "wind_blade": (WIND_C, "crescent"), "great_breakthrough": (WIND_C, "swirl"),
     "chidori": (LIGHT_C, "bolt"), "earth_wall": (EARTH_C, "brick"),
     "substitution": (BROWN, "log"), "rasengan": (rgb(0x3fa9e8), "swirl"),
+    "rasenshuriken": (rgb(0xb8ecff), "shuriken"),
     "shadow_clone": (GREY_C, "clones"), "body_flicker": (GREY_C, "streaks"),
     "chakra_chains": (rgb(0xc8281e), "chain"), "white_light_sabre": (rgb(0xdfe6ee), "blade"),
     "shadow_bind": (rgb(0x2f6b3a), "shadow"), "mangekyo_ability": (CRIM, "eye"),
@@ -597,11 +599,15 @@ def clan_uzumaki():
         px(c, int(round(7.5 + r * math.cos(a))), int(round(7.5 + r * math.sin(a))), RED)
     return c
 
-def clan_hatake():
-    c = canvas(); disc(c, 7.5, 7.5, 7, rgb(0x2b2f3a))
+def clan_senju():
+    # Senju crest: green disc with a pale leaf and a brown vein/stem (wood and vitality).
+    c = canvas(); disc(c, 7.5, 7.5, 7, rgb(0x234d2c)); disc(c, 7.5, 7.5, 6, rgb(0x3f8a4c))
     for y in range(16):
         for x in range(16):
-            if math.hypot(x - 7.5, y - 7.5) <= 5.5 and math.hypot(x - 10, y - 6.5) > 4.6: px(c, x, y, rgb(0xf4f4f4))
+            dx, dy = x - 7.5, y - 7.5
+            if abs(dx) + abs(dy) * 0.7 <= 4.6 and abs(dx - dy * 0.35) <= 3.2 - abs(dy) * 0.25:
+                px(c, x, y, rgb(0xcfeaa6))
+    line(c, 4, 12, 11, 3, BROWN)
     return c
 
 def clan_nara():
@@ -612,7 +618,7 @@ def clan_nara():
     return c
 
 CLANS = {"clan_uchiha": clan_uchiha, "clan_hyuga": clan_hyuga, "clan_uzumaki": clan_uzumaki,
-         "clan_hatake": clan_hatake, "clan_nara": clan_nara}
+         "clan_senju": clan_senju, "clan_nara": clan_nara}
 
 # ---------- eight gates ----------
 GATE_COLORS = [0x6ac96a, 0x9bd45a, 0xd6d94a, 0xf2b13a, 0xf27a2e, 0xe0432a, 0xb0121c, 0x3a0a0f]
@@ -730,12 +736,152 @@ def build_v2(ns):
     return providers
 
 # ---------- build ----------
+# ---------------------------------------------------------------------------------------------------------------
+# REAL 3D MODELS (element geometry) rendered in the world by ItemDisplay entities.
+#  * headgear_<style>: the Shinobi Headband as worn cosmetic gear (works over any helmet) + the active dojutsu eyes
+#  * orb_<kind>: spinning chakra orb used while charging (Rasengan, Chidori, wind, fire)
+# These are item models with "elements" (cuboids with per-face UVs), not flat sprites. They are verified statically only.
+# ---------------------------------------------------------------------------------------------------------------
+def _hue_shift(canvas_, degrees):
+    import colorsys
+    out = []
+    for row in canvas_:
+        r2 = []
+        for (r, g, b, a) in row:
+            if a == 0 or (r == g == b):
+                r2.append((r, g, b, a)); continue
+            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            nr, ng, nb = colorsys.hls_to_rgb((h + degrees / 360.0) % 1.0, l, min(1.0, sat * 1.3))
+            r2.append((round(nr * 255), round(ng * 255), round(nb * 255), a))
+        out.append(r2)
+    return out
+
+HEADGEAR_EYE = {  # headgear style key -> animated eye texture used on the face quad (None = no eyes)
+    "none": None,
+    "sharingan_1": "eye_sharingan_1", "sharingan_2": "eye_sharingan_2", "sharingan_3": "eye_sharingan_3",
+    "mangekyo_amaterasu": "eye_mangekyo_amaterasu", "mangekyo_tsukuyomi": "eye_mangekyo_tsukuyomi",
+    "mangekyo_kamui": "eye_mangekyo_kamui", "mangekyo_susanoo": "eye_mangekyo_susanoo",
+    "eternal_mangekyo": "eye_eternal_mangekyo", "rinnegan": "eye_rinnegan", "byakugan": "eye_byakugan",
+    "tenseigan": "eye_tenseigan",
+}
+
+def headgear_texture():
+    """16x16 sheet: cloth (0,0)-(7,7), steel plate with engraved swirl (8,0)-(15,7), darker knot cloth (0,8)-(7,15)."""
+    c = canvas()
+    cloth, hi, lo, stitch = rgb(0x2A5DB0), rgb(0x4a86e0), rgb(0x1c3f80), rgb(0x9cc2f5)
+    for y in range(8):
+        for x in range(8):
+            px(c, x, y, hi if y < 2 else lo if y > 5 else cloth)
+    for x in range(0, 8, 2):
+        px(c, x, 2, stitch); px(c, x, 5, stitch)
+    steel, shi, slo, edge, engr = rgb(0xb8c0c8), rgb(0xf2f6fa), rgb(0x7d848c), rgb(0x4a4f57), rgb(0x3a3f46)
+    for y in range(8):
+        for x in range(8):
+            px(c, 8 + x, y, steel)
+    for i in range(8):
+        px(c, 8 + i, 0, shi); px(c, 8, i, shi); px(c, 8 + i, 7, slo); px(c, 15, i, slo)
+    for rx, ry in ((9, 1), (14, 1), (9, 6), (14, 6)):
+        px(c, rx, ry, edge)
+    for gy, row in enumerate(["#####", "#....", "#.##.", "#..#.", "####."]):   # engraved swirl, with a light emboss offset
+        for gx, ch in enumerate(row):
+            if ch == "#":
+                px(c, 9 + gx + 1, 1 + gy + 1, shi) if (9 + gx + 1 < 15 and 1 + gy + 1 < 7) else None
+                px(c, 9 + gx, 1 + gy, engr)
+    for y in range(8, 16):
+        for x in range(8):
+            px(c, x, y, lo if (x + y) % 5 else cloth)
+    return c
+
+def _box(x0, y0, z0, x1, y1, z1, faces, shade=True):
+    return {"from": [round(x0, 3), round(y0, 3), round(z0, 3)], "to": [round(x1, 3), round(y1, 3), round(z1, 3)],
+            "shade": shade, "faces": faces}
+
+def _all_faces(uv, tex="#0"):
+    return {d: {"uv": uv, "texture": tex} for d in ("north", "south", "east", "west", "up", "down")}
+
+def headgear_model(style):
+    """Head-centred (8,8,8). Vanilla head = 8 px, helmet outer layer = 10 px; the band ring sits at 11.2 px so it clears any helmet.
+    Front faces north (-Z); the plugin turns the display by headgear.model-yaw-offset."""
+    H, T = 5.6, 0.6
+    cloth, plate, knot = [0, 0, 8, 2], [8, 0, 16, 8], [0, 8, 8, 16]
+    els = [
+        _box(8 - H, 9.4, 8 - H, 8 + H, 11.0, 8 - H + T, _all_faces(cloth)),            # front
+        _box(8 - H, 9.4, 8 + H - T, 8 + H, 11.0, 8 + H, _all_faces(cloth)),            # back
+        _box(8 - H, 9.4, 8 - H + T, 8 - H + T, 11.0, 8 + H - T, _all_faces(cloth)),    # left
+        _box(8 + H - T, 9.4, 8 - H + T, 8 + H, 11.0, 8 + H - T, _all_faces(cloth)),    # right
+        _box(8 - 2.4, 8.8, 8 - H - 0.35, 8 + 2.4, 11.6, 8 - H, _all_faces(plate)),     # forehead plate
+        _box(8 - 0.9, 9.3, 8 + H, 8 + 0.9, 11.1, 8 + H + 0.7, _all_faces(knot)),       # knot
+        _box(8 - 1.3, 7.0, 8 + H + 0.1, 8 - 0.3, 9.4, 8 + H + 0.5, _all_faces(knot)),  # tails
+        _box(8 + 0.3, 7.0, 8 + H + 0.1, 8 + 1.3, 9.4, 8 + H + 0.5, _all_faces(knot)),
+    ]
+    textures = {"0": "shinobi:item/headgear", "particle": "shinobi:item/headgear"}
+    eye = HEADGEAR_EYE[style]
+    if eye:
+        textures["eye"] = "shinobi:item/" + eye
+        for x in (-2.5, 2.5):   # quads just in front of the helmet's face; each shows the animated eye art 1:1
+            els.append(_box(8 + x - 1.4, 5.9, 2.5, 8 + x + 1.4, 8.7, 2.6, {"north": {"uv": [0, 0, 16, 16], "texture": "#eye"}}, shade=False))
+    return {"textures": textures, "elements": els}
+
+ORB_KINDS = {  # kind -> (core, mid, edge)
+    "lightning": (0xffffff, 0xbfe4ff, 0x4f8cff),
+    "rasengan": (0xf2fcff, 0x7fd4ff, 0x2f7fe0),
+    "wind": (0xffffff, 0xc8f1ff, 0x7ab8e8),
+    "fire": (0xfff1b0, 0xff9a2a, 0xd02a10),
+}
+
+def orb_texture(kind):
+    import math
+    core, mid, edge = ORB_KINDS[kind]
+    c = canvas()
+    for y in range(16):
+        for x in range(16):
+            dx, dy = x - 7.5, y - 7.5
+            r = math.hypot(dx, dy)
+            if r > 7.6:
+                continue
+            ang = math.atan2(dy, dx)
+            arm = (ang * 2.0 + r * 0.85) % (2 * math.pi)
+            if r < 2.4:
+                col = core
+            elif arm < 2.9 or r < 3.6:
+                col = mid if r < 5.2 else edge
+            else:
+                continue                                    # gaps between the spiral arms stay transparent
+            px(c, x, y, rgb(col))
+    return c
+
+def orb_model(kind):
+    full = [0, 0, 16, 16]
+    tex = "#0"
+    def cube(lo, hi, rot=None):
+        e = _box(lo, lo, lo, hi, hi, hi, _all_faces(full, tex), shade=False)
+        if rot: e["rotation"] = {"angle": rot[0], "axis": rot[1], "origin": [8, 8, 8]}
+        return e
+    return {"textures": {"0": "shinobi:item/orb_" + kind, "particle": "shinobi:item/orb_" + kind},
+            "elements": [cube(4.5, 11.5), cube(4.5, 11.5, (45, "y")), cube(4.5, 11.5, (45, "x")), cube(6.5, 9.5, (22.5, "z"))]}
+
+def _write_model_item(ns, name, model):
+    os.makedirs(os.path.join(ns, "models", "item"), exist_ok=True)
+    os.makedirs(os.path.join(ns, "items"), exist_ok=True)
+    json.dump(model, open(os.path.join(ns, "models", "item", name + ".json"), "w"), indent=2)
+    json.dump({"model": {"type": "minecraft:model", "model": "shinobi:item/" + name}},
+              open(os.path.join(ns, "items", name + ".json"), "w"), indent=2)
+
+def write_3d(ns):
+    write_png(os.path.join(ns, "textures", "item", "headgear.png"), headgear_texture())
+    for style in HEADGEAR_EYE:
+        _write_model_item(ns, "headgear_" + style, headgear_model(style))
+    for kind in ORB_KINDS:
+        write_png(os.path.join(ns, "textures", "item", "orb_" + kind + ".png"), orb_texture(kind))
+        _write_model_item(ns, "orb_" + kind, orb_model(kind))
+
 def main():
     ns = os.path.join(ROOT, "assets", "shinobi")
     for name, fn in ITEMS.items():
         write_png(os.path.join(ns, "textures", "item", name + ".png"), fn())
         write_item(ns, name, name in HANDHELD)
 
+    write_3d(ns)
     write_png(os.path.join(ns, "textures", "font", "seals.png"), seals_sheet())
     write_png(os.path.join(ns, "textures", "font", "bar.png"), bar_sheet())
     seal_chars = "".join(chr(0xE000 + i) for i in range(len(SEALS)))
@@ -746,10 +892,8 @@ def main():
         {"type": "bitmap", "file": "shinobi:font/bar.png", "ascent": 10, "height": 12, "chars": ["\ue100\ue101"]},
     ] + extra_providers}, open(os.path.join(ns, "font", "hud.json"), "w"), indent=2)
 
-    if PACK_FORMAT >= 69:   # 1.21.9 and later
-        meta = {"pack": {"description": "ShinobiSMP resources", "min_format": PACK_FORMAT, "max_format": 99}}
-    else:
-        meta = {"pack": {"pack_format": PACK_FORMAT, "description": "ShinobiSMP resources"}}
+    # 1.21.11 only: min_format == max_format == 75 (1.21.9+ metadata style, no legacy pack_format key).
+    meta = {"pack": {"description": "ShinobiSMP resources (Minecraft 1.21.11)", "min_format": PACK_FORMAT, "max_format": PACK_FORMAT}}
     json.dump(meta, open(os.path.join(ROOT, "pack.mcmeta"), "w"), indent=2)
 
     # Deterministic zip (fixed timestamps, sorted names) so the SHA-1 only changes when the art changes.

@@ -22,6 +22,14 @@ public final class ShinobiPlugin extends JavaPlugin {
     private CloneManager clones;
     private StationManager stations;
     private TempBlocks tempBlocks;
+    private EffectRegistry effects;
+    private AbilityEngine abilities;
+    private ChargeManager charging;
+    private BloodlineService bloodlines;
+    private DodgeManager dodges;
+    private HeadgearManager headgear;
+    private AccessService access;
+    private AuditLog audit;
     private ScrollDeskGui deskGui;
     private MissionBoardGui boardGui;
     private SealingScrollGui sealingGui;
@@ -31,6 +39,15 @@ public final class ShinobiPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
+        effects = new EffectRegistry(this);
+        abilities = new AbilityEngine(this);
+        charging = new ChargeManager(this);
+        bloodlines = new BloodlineService(this);
+        bloodlines.reload();
+        dodges = new DodgeManager(this);
+        headgear = new HeadgearManager(this);
+        access = new AccessService(this);
+        audit = new AuditLog(this);
         profiles = new ProfileManager(this);
         hud = new Hud(this);
         chakra = new ChakraManager(this);
@@ -58,6 +75,9 @@ public final class ShinobiPlugin extends JavaPlugin {
         var pm = getServer().getPluginManager();
         pm.registerEvents(new ShinobiListener(this), this);
         pm.registerEvents(seals, this);
+        pm.registerEvents(charging, this);
+        pm.registerEvents(dodges, this);
+        pm.registerEvents(headgear, this);
         pm.registerEvents(items, this);
         pm.registerEvents(menu, this);
         pm.registerEvents(missions, this);
@@ -78,6 +98,9 @@ public final class ShinobiPlugin extends JavaPlugin {
             }
         }
 
+        tempBlocks.start();
+        headgear.start();
+        charging.reload();
         chakra.start();
         training.start();
         susanoo.start();
@@ -94,10 +117,16 @@ public final class ShinobiPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (effects != null) effects.cleanupAll(EffectRegistry.Reason.SHUTDOWN);
+        if (charging != null) charging.shutdown();
+        if (headgear != null) headgear.removeAll();
         if (susanoo != null) susanoo.endAll();
         if (clones != null) clones.removeAll();
-        if (tempBlocks != null) tempBlocks.revertAll();
-        if (profiles != null) profiles.saveAll();
+        if (tempBlocks != null) tempBlocks.shutdown();
+        if (profiles != null) {
+            profiles.saveAll();
+            profiles.close();
+        }
         if (mangekyo != null) mangekyo.save();
         if (stations != null) stations.save();
         if (items != null) items.unregister();
@@ -121,6 +150,14 @@ public final class ShinobiPlugin extends JavaPlugin {
     public CloneManager clones() { return clones; }
     public StationManager stations() { return stations; }
     public TempBlocks tempBlocks() { return tempBlocks; }
+    public EffectRegistry effects() { return effects; }
+    public AbilityEngine abilities() { return abilities; }
+    public ChargeManager charging() { return charging; }
+    public BloodlineService bloodlines() { return bloodlines; }
+    public DodgeManager dodges() { return dodges; }
+    public HeadgearManager headgear() { return headgear; }
+    public AccessService access() { return access; }
+    public AuditLog audit() { return audit; }
     public ScrollDeskGui deskGui() { return deskGui; }
     public MissionBoardGui boardGui() { return boardGui; }
     public SealingScrollGui sealingGui() { return sealingGui; }

@@ -83,25 +83,37 @@ public final class MangekyoManager {
 
     /** Assigns an ability if it is free and the player has none. Returns false if refused. */
     public boolean assign(Player p, Profile pr, String ability) {
-        if (!ABILITIES.contains(ability) || owners.containsKey(ability) || pr.mangekyo != null) return false;
-        pr.mangekyo = ability;
+        if (!ABILITIES.contains(ability) || owners.containsKey(ability) || pr.mangekyoPowers.size() >= maxPowers()) return false;
+        pr.mangekyoPowers.add(ability);
+        if (pr.mangekyo == null) pr.mangekyo = ability;   // the first power is the primary one (alias, eye style)
         owners.put(ability, pr.id);
         save();
         return true;
     }
 
+    /** Maximum Mangekyo powers one player may hold (config mangekyo.max-powers-per-player, default 1 = original behaviour). */
+    public int maxPowers() {
+        return Math.max(1, Math.min(ABILITIES.size(), plugin.getConfig().getInt("mangekyo.max-powers-per-player", 1)));
+    }
+
+    /** Removes every power this player holds (owners are released). */
     public void revoke(Profile pr) {
-        if (pr.mangekyo != null) {
-            owners.remove(pr.mangekyo);
-            pr.mangekyo = null;
-            save();
+        boolean changed = false;
+        for (String power : new ArrayList<>(pr.mangekyoPowers)) {
+            if (pr.id.equals(owners.get(power))) owners.remove(power);
+            changed = true;
         }
+        if (pr.mangekyo != null && pr.id.equals(owners.get(pr.mangekyo))) owners.remove(pr.mangekyo);
+        pr.mangekyoPowers.clear();
+        if (pr.mangekyo != null) changed = true;
+        pr.mangekyo = null;
+        if (changed) save();
     }
 
     /** A bonded friend died near this holder: awaken the Mangekyou if eligible. */
     public void tryAwaken(Player holder, String fallenName) {
         Profile pr = plugin.profiles().get(holder);
-        if (pr.clan != Clan.UCHIHA || !pr.awakened || pr.mangekyo != null) return;
+        if (pr.clan != Clan.UCHIHA || !pr.awakened || !pr.mangekyoPowers.isEmpty() || pr.mangekyo != null) return;
         List<String> free = freeAbilities();
         if (free.isEmpty()) {
             Msg.send(holder, "<gray>Your grief runs deep, but every Mangekyou power is already claimed.");
@@ -119,17 +131,20 @@ public final class MangekyoManager {
     /** Owner died: apply the configured rule (return | transfer | keep). */
     public void onOwnerDeath(Player victim, Player killer) {
         Profile pr = plugin.profiles().get(victim);
-        if (pr.mangekyo == null) return;
+        if (pr.mangekyo == null && pr.mangekyoPowers.isEmpty()) return;
         String rule = plugin.getConfig().getString("mangekyo.owner-death", "return");
         if (rule.equalsIgnoreCase("keep")) return;
-        String ability = pr.mangekyo;
+        List<String> lost = new ArrayList<>(pr.mangekyoPowers);
+        if (lost.isEmpty() && pr.mangekyo != null) lost.add(pr.mangekyo);
         revoke(pr);
         pr.dojutsuActive = false;
         Msg.send(victim, "<dark_red>Your Mangekyou fades with your death.");
         if (rule.equalsIgnoreCase("transfer") && killer != null && !killer.equals(victim)) {
             Profile kp = plugin.profiles().get(killer);
-            if (kp.clan == Clan.UCHIHA && kp.awakened && assign(killer, kp, ability)) {
-                Msg.send(killer, "<dark_red>You claim the power of <red>" + display(ability) + "<dark_red>.");
+            for (String ability : lost) {
+                if (kp.clan == Clan.UCHIHA && kp.awakened && assign(killer, kp, ability)) {
+                    Msg.send(killer, "<dark_red>You claim the power of <red>" + display(ability) + "<dark_red>.");
+                }
             }
         }
     }
@@ -140,8 +155,13 @@ public final class MangekyoManager {
             Msg.bar(p, "<red>You have not awakened a Mangekyou.");
             return false;
         }
+        return castPower(p, pr, pr.mangekyo);
+    }
+
+    /** Fires one specific power. Eligibility (holding the power) is checked by the AbilityEngine before this is called. */
+    public boolean castPower(Player p, Profile pr, String power) {
         World w = p.getWorld();
-        switch (pr.mangekyo) {
+        switch (power) {
             case "amaterasu" -> {
                 LivingEntity t = Fx.target(p, 25);
                 if (t == null || !Fx.canHurt(plugin, p, t)) {

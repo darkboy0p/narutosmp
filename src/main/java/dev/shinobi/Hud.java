@@ -21,7 +21,7 @@ public final class Hud {
     /** Jutsu that have their own scroll texture in the pack. */
     public static final Set<String> SCROLL_MODELS = Set.of(
             "great_fireball", "phoenix_flower", "water_dragon", "water_wall", "wind_blade", "great_breakthrough",
-            "chidori", "earth_wall", "substitution", "rasengan", "shadow_clone", "body_flicker", "chakra_chains",
+            "chidori", "earth_wall", "substitution", "rasengan", "rasenshuriken", "shadow_clone", "body_flicker", "chakra_chains",
             "white_light_sabre", "shadow_bind", "mangekyo_ability", "wall_walk", "water_walk");
 
     private final ShinobiPlugin plugin;

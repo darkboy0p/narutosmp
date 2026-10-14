@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.shinobi"
-version = "0.6.0"
+version = "0.12.0-stage3d"
 
 repositories {
     mavenCentral()
@@ -30,3 +30,12 @@ tasks.processResources {
         expand("version" to project.version)
     }
 }
+
+// Plain-Java tests for the pure charge and bloodline rules (no Bukkit, no JUnit). Part of `gradle build` via `check`.
+val logicTests by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Runs the pure-logic tests (charging, bloodlines, migration, dodge, cast-route guard)"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("dev.shinobi.AllLogicTests")
+}
+tasks.named("check") { dependsOn(logicTests) }

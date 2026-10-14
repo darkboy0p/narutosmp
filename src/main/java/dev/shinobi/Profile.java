@@ -14,6 +14,17 @@ public final class Profile {
     public final UUID id;
 
     // ---- persisted ----
+    public int schemaVersion = SchemaMigrator.CURRENT;
+    public String legacyClan;                    // e.g. "HATAKE" if this profile was migrated to Senju
+    public final List<String> clanHistory = new ArrayList<>();
+    public boolean readOnly;                     // transient: set when the file is newer/unsafe; saves are refused
+    public String unknownClan;                   // raw clan string we could not parse; written back untouched
+    public final Set<String> bloodlines = new LinkedHashSet<>(); // granted/earned (non-innate) bloodline ids
+    public boolean headbandWorn;                                        // wearing the cosmetic Shinobi Headband (any helmet)
+    public final Set<String> mangekyoPowers = new LinkedHashSet<>();    // every unlocked Mangekyo power (mangekyo = primary)
+    public final Set<String> forcedBloodlines = new LinkedHashSet<>(); // administrator-FORCED bloodline access (explicit, persistent)
+    public final Set<String> forcedAbilities = new LinkedHashSet<>();  // administrator-FORCED ability access (explicit, persistent)
+    public final Map<String, Object> extra = new LinkedHashMap<>(); // unknown top-level keys, preserved on save
     public boolean rolled;
     public Nature nature;
     public boolean natureRevealed;

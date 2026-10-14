@@ -74,8 +74,8 @@ public final class ItemManager implements Listener {
                 "<gray>Used at a Scroll Desk to write a jutsu."),
         SEALING_SCROLL("sealing_scroll", Material.PAPER, "<aqua>Sealing Scroll",
                 "<gray>Right-click to open and seal items inside."),
-        HEADBAND("headband", Material.LEATHER_HELMET, "<blue>Shinobi Headband",
-                "<gray>Wear it with pride."),
+        HEADBAND("headband", Material.LEATHER_HORSE_ARMOR, "<blue>Shinobi Headband",
+                "<gray>Right-click to wear it over any helmet. /shinobi headband takes it off."),
         RYO("ryo", Material.GOLD_NUGGET, "<gold>Ryo",
                 "<gray>Currency of the shinobi world."),
         CHAKRA_BLADE("chakra_blade", Material.IRON_SWORD, "<aqua>Chakra Blade",
@@ -318,7 +318,12 @@ public final class ItemManager implements Listener {
         String t = tag(held);
         if (t == null) return;
         // These keep their vanilla behaviour (placing a block, equipping, swinging).
-        if (t.equals("scroll_desk") || t.equals("mission_board") || t.equals("headband")
+        if (t.equals("headband")) { // cosmetic gear: wear it over any helmet (never uses the armor slot)
+            e.setCancelled(true);
+            plugin.headgear().equip(e.getPlayer(), held);
+            return;
+        }
+        if (t.equals("scroll_desk") || t.equals("mission_board")
                 || t.equals("chakra_blade") || t.equals("ryo") || t.equals("blank_scroll")) return;
 
         // Let players still open chests, doors, etc. while holding one of these items.

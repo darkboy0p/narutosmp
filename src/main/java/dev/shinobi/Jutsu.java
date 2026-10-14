@@ -11,6 +11,15 @@ public final class Jutsu {
         boolean cast(ShinobiPlugin plugin, Player p, Profile pr);
     }
 
+    /** Outcome of a charge, handed to the release effect. Scales are already clamped by the {@link ChargeSpec}. */
+    public record ChargeResult(int ticks, double progress, double damageScale, double rangeScale, boolean full) {}
+
+    @FunctionalInterface
+    public interface ChargeEffect {
+        /** Called once when a charge is released. Return false if nothing happened (invalid target etc.); the engine then refunds per config. */
+        boolean release(ShinobiPlugin plugin, Player p, Profile pr, ChargeResult charge);
+    }
+
     public final String id;
     public final String name;
     public final List<Seal> seals;
@@ -21,6 +30,14 @@ public final class Jutsu {
     public final boolean needsKnown; // must be learned from a scroll / admin
     public final boolean needsDojutsu;
     public final Effect effect;
+    public final ChargeSpec charge;          // null = not chargeable
+    public final ChargeEffect chargeEffect;
+    public final java.util.function.ToLongFunction<Profile> cooldownResolver; // optional per-player cooldown (ms); null = cooldownMs
+    public final String mangekyoPower;       // Mangekyo power the caster must hold (null = none)
+    public final java.util.function.Function<Profile, String> redirect; // alias: resolves to another jutsu id for this player
+    public final String bloodline;           // bloodline id required to cast (null = none)
+    public final String requireJutsu;        // progression: must have cast this technique...
+    public final int requireCasts;           // ...at least this many times
 
     private Jutsu(Builder b) {
         this.id = b.id;
@@ -33,6 +50,14 @@ public final class Jutsu {
         this.needsKnown = b.needsKnown;
         this.needsDojutsu = b.needsDojutsu;
         this.effect = b.effect;
+        this.charge = b.charge;
+        this.chargeEffect = b.chargeEffect;
+        this.cooldownResolver = b.cooldownResolver;
+        this.mangekyoPower = b.mangekyoPower;
+        this.redirect = b.redirect;
+        this.bloodline = b.bloodline;
+        this.requireJutsu = b.requireJutsu;
+        this.requireCasts = b.requireCasts;
     }
 
     public String sealText() {
@@ -60,6 +85,14 @@ public final class Jutsu {
         private boolean needsKnown = true;
         private boolean needsDojutsu = false;
         private Effect effect;
+        private ChargeSpec charge;
+        private ChargeEffect chargeEffect;
+        private java.util.function.ToLongFunction<Profile> cooldownResolver;
+        private String mangekyoPower;
+        private java.util.function.Function<Profile, String> redirect;
+        private String bloodline;
+        private String requireJutsu;
+        private int requireCasts;
 
         private Builder(String id, String name) {
             this.id = id;
@@ -74,6 +107,12 @@ public final class Jutsu {
         public Builder known(boolean b) { this.needsKnown = b; return this; }
         public Builder dojutsu(boolean b) { this.needsDojutsu = b; return this; }
         public Builder effect(Effect e) { this.effect = e; return this; }
+        public Builder charge(ChargeSpec spec, ChargeEffect e) { this.charge = spec; this.chargeEffect = e; return this; }
+        public Builder cooldownFor(java.util.function.ToLongFunction<Profile> f) { this.cooldownResolver = f; return this; }
+        public Builder mangekyoPower(String power) { this.mangekyoPower = power; return this; }
+        public Builder redirect(java.util.function.Function<Profile, String> f) { this.redirect = f; return this; }
+        public Builder bloodline(String id) { this.bloodline = id; return this; }
+        public Builder requires(String jutsuId, int casts) { this.requireJutsu = jutsuId; this.requireCasts = casts; return this; }
         public Jutsu build() { return new Jutsu(this); }
     }
 }

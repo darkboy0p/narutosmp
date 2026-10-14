@@ -62,7 +62,8 @@ public final class SusanooManager {
     }
 
     private static final class State {
-        int stage = 0;
+        final SusanooState model = new SusanooState();
+        EffectRegistry.Handle handle;      // Susanoo's OWN cleanup handle: ending it never touches charges or other effects
         final List<BlockDisplay> displays = new ArrayList<>();
         final List<Part> parts = new ArrayList<>();
     }
@@ -97,27 +98,45 @@ public final class SusanooManager {
 
     public int stage(Player p) {
         State s = active.get(p.getUniqueId());
-        return s == null ? 0 : s.stage;
+        return s == null ? 0 : s.model.stage();
     }
 
-    /** First cast starts Susanoo; each further cast adds a stage; a cast at stage 4 dismisses it. */
+    /** Ability ids refused while Susanoo is active (config susanoo.incompatible-abilities). Everything else stays castable. */
+    public java.util.Set<String> incompatible() {
+        return AbilityCompat.normalise(plugin.getConfig().isList("susanoo.incompatible-abilities")
+                ? plugin.getConfig().getStringList("susanoo.incompatible-abilities") : AbilityCompat.SUSANOO_DEFAULT);
+    }
+
+    private static boolean holdsSusanoo(Profile pr) {
+        return pr.mangekyoPowers.contains("susanoo") || pr.forcedAbilities.contains("susanoo");
+    }
+
+    /** First cast starts Susanoo; each further cast adds a stage; a cast at the last stage dismisses it. */
     public boolean advance(Player p, Profile pr) {
-        State s = active.get(p.getUniqueId());
+        UUID id = p.getUniqueId();
+        State s = active.get(id);
         if (s == null) {
-            s = new State();
-            active.put(p.getUniqueId(), s);
+            State fresh = new State();
+            EffectRegistry.Handle h = plugin.effects().begin(id, "susanoo", () -> teardown(id)); // quit/death/world change/shutdown
+            if (h == null) {
+                Msg.bar(p, "<red>Too many active effects.");
+                return false;
+            }
+            fresh.handle = h;
+            active.put(id, fresh);
+            s = fresh;
         }
-        if (s.stage >= 4) {
+        SusanooState.Advance result = s.model.advance();
+        if (result == SusanooState.Advance.DISMISSED) {
             end(p);
             return true;
         }
-        s.stage++;
+        int stage = s.model.stage();
         for (Part part : PARTS) {
-            if (part.stage() == s.stage) spawn(p, s, part);
+            if (part.stage() == stage) spawn(p, s, part);
         }
-        p.getWorld().playSound(p.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 1f, 0.5f + 0.1f * s.stage);
-        String[] names = {"", "Ribcage", "Skeleton", "Armored", "Complete"};
-        Msg.bar(p, "<dark_purple>Susanoo: " + names[s.stage]);
+        p.getWorld().playSound(p.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 1f, 0.5f + 0.1f * stage);
+        Msg.bar(p, "<dark_purple>Susanoo: " + SusanooState.STAGE_NAMES[stage]);
         applyEffects(p, s);
         return true;
     }
@@ -150,22 +169,23 @@ public final class SusanooManager {
     }
 
     private void applyEffects(Player p, State s) {
-        int amp = Math.max(0, s.stage - 1);
+        int amp = SusanooState.resistanceAmplifier(s.model.stage());
         p.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 60, amp, true, false, false));
         p.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 60, amp, true, false, false));
     }
 
-    /** Once per second: upkeep, strain, and keeping the buffs up. */
+    /** Once per second: upkeep, strain, and keeping the buffs up. Never touches other abilities' chakra reservations or cooldowns. */
     public void secondTick(Player p, Profile pr) {
         State s = active.get(p.getUniqueId());
         if (s == null) return;
-        if (!pr.dojutsuActive || pr.mangekyo == null || !pr.mangekyo.equals("susanoo")) {
+        if (!pr.dojutsuActive || !holdsSusanoo(pr)) {
             end(p);
             return;
         }
-        pr.chakra = Math.max(0.0, pr.chakra - 4.0 * s.stage);
-        if (!pr.eternal) pr.strain += 1.0 * s.stage;
-        if (pr.chakra <= 0.0) {
+        SusanooState.Upkeep up = s.model.upkeep(pr.chakra, pr.eternal, plugin.getConfig().getDouble("susanoo.drain-per-stage", 4.0));
+        pr.chakra = up.chakra();
+        pr.strain += up.strainGain();
+        if (up.collapsed()) {
             Msg.bar(p, "<red>Susanoo collapses. You are out of chakra.");
             end(p);
             return;
@@ -173,16 +193,24 @@ public final class SusanooManager {
         applyEffects(p, s);
     }
 
-    public void end(Player p) {
-        State s = active.remove(p.getUniqueId());
+    /** Removes the displays and forgets the state. Idempotent; called by the registry handle and by end(). */
+    private void teardown(UUID id) {
+        State s = active.remove(id);
         if (s == null) return;
+        s.model.end();
         for (BlockDisplay d : s.displays) if (d.isValid()) d.remove();
+    }
+
+    public void end(Player p) {
+        State s = active.get(p.getUniqueId());
+        if (s == null) return;
+        s.handle.end(); // runs teardown() through the registry; only THIS effect is ended
+        teardown(p.getUniqueId());
         p.getWorld().playSound(p.getLocation(), Sound.BLOCK_GLASS_BREAK, 1f, 0.6f);
         Msg.bar(p, "<gray>Susanoo dissipates.");
     }
 
     public void endAll() {
-        for (State s : active.values()) for (BlockDisplay d : s.displays) if (d.isValid()) d.remove();
-        active.clear();
+        for (UUID id : new ArrayList<>(active.keySet())) teardown(id);
     }
 }
