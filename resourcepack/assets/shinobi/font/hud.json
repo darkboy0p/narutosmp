@@ -1,0 +1,49 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "shinobi:font/seals.png",
+      "ascent": 10,
+      "height": 12,
+      "chars": [
+        "\ue000\ue001\ue002\ue003\ue004\ue005\ue006\ue007\ue008\ue009\ue00a\ue00b"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "shinobi:font/bar.png",
+      "ascent": 10,
+      "height": 12,
+      "chars": [
+        "\ue100\ue101"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "shinobi:font/eyes.png",
+      "ascent": 10,
+      "height": 12,
+      "chars": [
+        "\ue200\ue201\ue202\ue203\ue204\ue205\ue206\ue207\ue208\ue209\ue20a"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "shinobi:font/natures.png",
+      "ascent": 10,
+      "height": 12,
+      "chars": [
+        "\ue300\ue301\ue302\ue303\ue304"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "shinobi:font/gates.png",
+      "ascent": 10,
+      "height": 12,
+      "chars": [
+        "\ue400\ue401\ue402\ue403\ue404\ue405\ue406\ue407"
+      ]
+    }
+  ]
+}
